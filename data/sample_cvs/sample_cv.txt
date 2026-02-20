@@ -1,0 +1,42 @@
+JOHN DOE
+    Software Engineer
+    john.doe@email.com | +1-234-567-8900 | linkedin.com/in/johndoe
+    
+    SUMMARY
+    Experienced software engineer with 5 years in full-stack development.
+    Proficient in Python, JavaScript, and cloud technologies.
+    
+    EXPERIENCE
+    
+    Senior Software Engineer | Tech Corp | 2021 - Present
+    • Built RESTful APIs using FastAPI and PostgreSQL
+    • Deployed microservices on AWS using Docker and Kubernetes
+    • Improved system performance by 40% through optimization
+    
+    Software Engineer | StartupXYZ | 2019 - 2021
+    • Developed React-based dashboard for data visualization
+    • Implemented CI/CD pipelines with GitHub Actions
+    • Collaborated with team of 8 developers using Agile methodology
+    
+    EDUCATION
+    
+    Bachelor of Science in Computer Science
+    University of Technology | 2015 - 2019
+    GPA: 3.8/4.0
+    
+    SKILLS
+    
+    Languages: Python, JavaScript, TypeScript, SQL
+    Frameworks: FastAPI, React, Node.js, Django
+    Tools: Docker, Kubernetes, AWS, Git, PostgreSQL
+    
+    PROJECTS
+    
+    E-commerce Platform
+    • Built scalable backend handling 10K requests/second
+    • Tech stack: FastAPI, Redis, PostgreSQL, Docker
+    
+    CERTIFICATIONS
+    
+    AWS Certified Solutions Architect
+    Issued: 2022

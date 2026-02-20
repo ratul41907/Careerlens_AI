@@ -1,0 +1,15 @@
+REM After completing work each day:
+
+REM 1. Check what changed
+git status
+
+REM 2. Add all changes
+git add .
+
+REM 3. Commit with meaningful message
+git commit -m "Day 2: Job description parser with spaCy NLP"
+
+REM 4. Push to GitHub
+git push
+
+REM That's it!
