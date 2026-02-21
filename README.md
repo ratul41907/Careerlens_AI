@@ -247,10 +247,10 @@ careerlens-ai/
 
 | Member                 | Role           | Workload |
 | ---------------------- | -------------- | -------- |
-| **Arafat Zaman Ratul** | Lead Developer | 30%      |
+| **Arafat Zaman Ratul** | FUll stack AI  | 25%      |
 | **Mahfuzur Rahman**    | AI Engineer    | 25%      |
-| **Ashikur Rahman**     | Full-Stack Dev | 23%      |
-| **Hasibul Islam Rony** | Data Engineer  | 22%      |
+| **Ashikur Rahman**     | Full-Stack Dev | 25%      |
+| **Hasibul Islam Rony** | Data Engineer  | 25%      |
 
 ---
 
