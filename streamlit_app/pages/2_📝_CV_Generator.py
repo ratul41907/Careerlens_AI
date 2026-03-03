@@ -383,21 +383,21 @@ elif "Auto-Generate" in generation_mode:
         st.markdown("### 💼 Target Job Description")
         
         target_jd_text = st.text_area(
-            "Paste the job description you're applying for",
-            height=460,
-            placeholder="""Paste full job description here...
+        "Paste the job description you're applying for",
+        height=460,
+        placeholder="""Paste full job description here...
 
-Example:
-Senior Software Engineer
+    Example:
+    Senior Software Engineer
 
-Required Skills:
-- Python, FastAPI
-- Docker, Kubernetes
-- AWS cloud services
-- 5+ years experience
+    Required Skills:
+    - Python, FastAPI
+    - Docker, Kubernetes
+    - AWS cloud services
+    - 5+ years experience
 
-We'll automatically highlight YOUR matching skills!""",
-            key="target_jd"
+    We'll automatically highlight YOUR matching skills!""",
+    key="target_jd_input"  # ← CHANGED FROM "target_jd"
         )
     
     st.markdown("---")
@@ -493,7 +493,7 @@ We'll automatically highlight YOUR matching skills!""",
                 # Store for generation
                 st.session_state.jd_skills = jd_data.get('required_skills', []) + jd_data.get('preferred_skills', [])
                 st.session_state.matched_skills = matched_skills
-                st.session_state.target_jd = target_jd_text
+                #st.session_state.target_jd = target_jd_text
                 st.session_state.parsed_cv = cv_data
                 st.session_state.jd_data = jd_data
                 
@@ -910,15 +910,128 @@ if st.session_state.cv_bytes_docx:
     
     with download_col:
         st.markdown("### 📥 Download Options")
-        
-        # DOCX Download
+    
+    # DOCX Download
+    st.download_button(
+        label="📄 Download DOCX",
+        data=st.session_state.cv_bytes_docx,
+        file_name=st.session_state.filename,
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        use_container_width=True
+    )
+    
+    st.markdown("---")
+    
+    # PDF Generation
+    st.markdown("**Convert to PDF:**")
+    
+    pdf_button = st.button("🔄 Generate PDF", use_container_width=True, key="pdf_gen_btn")
+    
+    if pdf_button:
+        with st.spinner("📕 Converting to PDF..."):
+            try:
+                # Try using docx2pdf (Windows only)
+                try:
+                    from docx2pdf import convert
+                    
+                    # Save DOCX temporarily
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_docx:
+                        tmp_docx.write(st.session_state.cv_bytes_docx)
+                        tmp_docx_path = tmp_docx.name
+                    
+                    # Convert to PDF
+                    pdf_path = tmp_docx_path.replace('.docx', '.pdf')
+                    convert(tmp_docx_path, pdf_path)
+                    
+                    # Read PDF
+                    with open(pdf_path, 'rb') as pdf_file:
+                        pdf_bytes = pdf_file.read()
+                    
+                    # Clean up
+                    os.unlink(tmp_docx_path)
+                    os.unlink(pdf_path)
+                    
+                    # Store PDF
+                    st.session_state.cv_bytes_pdf = pdf_bytes
+                    st.session_state.pdf_filename = st.session_state.filename.replace('.docx', '.pdf')
+                    
+                    st.success("✅ PDF generated successfully!")
+                    st.rerun()
+                    
+                except ImportError:
+                    # Fallback: Use LibreOffice if available
+                    import subprocess
+                    
+                    # Save DOCX temporarily
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx', dir=tempfile.gettempdir()) as tmp_docx:
+                        tmp_docx.write(st.session_state.cv_bytes_docx)
+                        tmp_docx_path = tmp_docx.name
+                    
+                    # Try LibreOffice conversion
+                    temp_dir = tempfile.gettempdir()
+                    result = subprocess.run([
+                        'soffice', '--headless', '--convert-to', 'pdf',
+                        '--outdir', temp_dir, tmp_docx_path
+                    ], capture_output=True)
+                    
+                    pdf_path = tmp_docx_path.replace('.docx', '.pdf')
+                    
+                    if os.path.exists(pdf_path):
+                        with open(pdf_path, 'rb') as pdf_file:
+                            pdf_bytes = pdf_file.read()
+                        
+                        # Store PDF
+                        st.session_state.cv_bytes_pdf = pdf_bytes
+                        st.session_state.pdf_filename = st.session_state.filename.replace('.docx', '.pdf')
+                        
+                        # Clean up
+                        os.unlink(tmp_docx_path)
+                        os.unlink(pdf_path)
+                        
+                        st.success("✅ PDF generated successfully!")
+                        st.rerun()
+                    else:
+                        raise Exception("LibreOffice conversion failed")
+                        
+            except Exception as e:
+                st.warning(f"""
+                ⚠️ PDF conversion not available on this system.
+                
+                **Alternative options:**
+                1. Download DOCX and open in Microsoft Word → Save As PDF
+                2. Upload DOCX to Google Docs → Download as PDF
+                3. Use online converter: https://www.ilovepdf.com/word_to_pdf
+                
+                Error details: {str(e)}
+                """)
+    
+    # Show PDF download if available
+    if 'cv_bytes_pdf' in st.session_state and st.session_state.cv_bytes_pdf:
         st.download_button(
-            label="📄 Download DOCX",
-            data=st.session_state.cv_bytes_docx,
-            file_name=st.session_state.filename,
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            label="📕 Download PDF",
+            data=st.session_state.cv_bytes_pdf,
+            file_name=st.session_state.pdf_filename,
+            mime="application/pdf",
             use_container_width=True
         )
+    
+    st.markdown("---")
+    
+    st.info(f"💾 **{st.session_state.filename}**")
+    
+    # Quick actions
+    st.markdown("### 🎯 Quick Actions")
+    
+    if st.button("🔄 Generate Another CV", use_container_width=True):
+        # Clear session state
+        for key in ['cv_bytes_docx', 'cv_bytes_pdf', 'cv_html', 'filename', 'pdf_filename', 
+                    'ready_to_generate_auto', 'ready_to_generate_from_docs']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
+    
+    if st.button("📊 Test with CV Matcher", use_container_width=True):
+        st.switch_page("pages/1_📊_CV_Matcher.py")
         
         st.markdown("---")
         
