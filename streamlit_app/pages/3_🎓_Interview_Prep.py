@@ -1,0 +1,629 @@
+"""
+Interview Prep Page - STAR Method Practice
+"""
+import streamlit as st
+import sys
+from pathlib import Path
+import json
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from src.guidance.interview_guidance import InterviewGuidanceSystem
+
+# Page config
+st.set_page_config(
+    page_title="Interview Prep - CareerLens AI",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Dark theme CSS
+st.markdown("""
+<style>
+    /* Force dark theme */
+    .stApp {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+    }
+    
+    /* Hide branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* All text light colored */
+    * {
+        color: #e2e8f0 !important;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background: rgba(15, 23, 42, 0.95) !important;
+    }
+    
+    /* Text inputs */
+    .stTextInput input, .stTextArea textarea {
+        background: rgba(30, 41, 59, 0.8) !important;
+        color: #e2e8f0 !important;
+        border: 1px solid rgba(96, 165, 250, 0.3) !important;
+        border-radius: 8px;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
+        color: white !important;
+        border: none;
+        padding: 0.875rem 2rem;
+        font-size: 1rem;
+        border-radius: 12px;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.6);
+    }
+    
+    /* Question cards */
+    .question-card {
+        background: rgba(30, 41, 59, 0.7);
+        border-left: 4px solid #3b82f6;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .question-card:hover {
+        border-left-color: #60a5fa;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+    
+    .question-difficulty-easy {
+        border-left-color: #10b981;
+    }
+    
+    .question-difficulty-medium {
+        border-left-color: #f59e0b;
+    }
+    
+    .question-difficulty-hard {
+        border-left-color: #ef4444;
+    }
+    
+    /* STAR framework box */
+    .star-box {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+        border: 1px solid rgba(96, 165, 250, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    .star-component {
+        background: rgba(30, 41, 59, 0.5);
+        border-left: 3px solid #60a5fa;
+        border-radius: 6px;
+        padding: 1rem;
+        margin: 0.75rem 0;
+    }
+    
+    /* Score display */
+    .score-display {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(52, 211, 153, 0.1));
+        border: 2px solid rgba(16, 185, 129, 0.3);
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    
+    .score-value {
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #10b981, #34d399);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Feedback boxes */
+    .feedback-good {
+        background: rgba(16, 185, 129, 0.1);
+        border-left: 3px solid #10b981;
+        padding: 0.75rem;
+        margin: 0.5rem 0;
+        border-radius: 4px;
+    }
+    
+    .feedback-warning {
+        background: rgba(245, 158, 11, 0.1);
+        border-left: 3px solid #f59e0b;
+        padding: 0.75rem;
+        margin: 0.5rem 0;
+        border-radius: 4px;
+    }
+    
+    /* Success/Info messages */
+    .stSuccess {
+        background: rgba(16, 185, 129, 0.1) !important;
+        border: 1px solid rgba(16, 185, 129, 0.3) !important;
+        color: #10b981 !important;
+    }
+    
+    .stInfo {
+        background: rgba(59, 130, 246, 0.1) !important;
+        border: 1px solid rgba(59, 130, 246, 0.3) !important;
+        color: #3b82f6 !important;
+    }
+    
+    .stWarning {
+        background: rgba(245, 158, 11, 0.1) !important;
+        border: 1px solid rgba(245, 158, 11, 0.3) !important;
+        color: #f59e0b !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Initialize session state
+if 'interview_system' not in st.session_state:
+    st.session_state.interview_system = InterviewGuidanceSystem()
+if 'selected_question' not in st.session_state:
+    st.session_state.selected_question = None
+if 'star_answer' not in st.session_state:
+    st.session_state.star_answer = None
+if 'evaluation_result' not in st.session_state:
+    st.session_state.evaluation_result = None
+
+# Title
+st.markdown("""
+<h1 style="background: linear-gradient(90deg, #60a5fa, #a78bfa); -webkit-background-clip: text; 
+           -webkit-text-fill-color: transparent; font-size: 3rem; font-weight: 800; margin-bottom: 0.5rem;">
+    🎓 Interview Preparation
+</h1>
+<p style="color: #94a3b8 !important; font-size: 1.25rem; margin-bottom: 2rem;">
+    Master the STAR method • Practice with AI feedback • Build confidence
+</p>
+""", unsafe_allow_html=True)
+
+# Two modes: Practice Questions or STAR Builder
+mode = st.radio(
+    "Choose your practice mode:",
+    ["🎯 Get Interview Questions", "✨ Build STAR Answer", "📊 Evaluate My Answer"],
+    horizontal=True
+)
+
+st.markdown("---")
+
+# ============================================================================
+# MODE 1: GET INTERVIEW QUESTIONS
+# ============================================================================
+if "Get Interview Questions" in mode:
+    st.markdown("### 🎯 Get Personalized Interview Questions")
+    
+    st.info("💡 Enter your skills and we'll generate relevant interview questions across different categories!")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        skills_input = st.text_input(
+            "Enter your skills (comma-separated)",
+            placeholder="python, fastapi, docker, kubernetes, react, aws",
+            help="List the skills you want to be interviewed on"
+        )
+    
+    with col2:
+        num_questions = st.slider("Number of questions", min_value=5, max_value=20, value=10, step=1)
+    
+    if st.button("🎯 Generate Questions", type="primary", use_container_width=True):
+        if not skills_input:
+            st.error("❌ Please enter at least one skill")
+            st.stop()
+        
+        skills = [s.strip() for s in skills_input.split(',') if s.strip()]
+        
+        with st.spinner("🧠 Generating personalized interview questions..."):
+            try:
+                interview_system = st.session_state.interview_system
+                questions = interview_system.get_recommended_questions(
+                    skills=skills,
+                    num_questions=num_questions
+                )
+                
+                st.success(f"✅ Generated {questions['total_questions']} questions across {len(questions['by_category'])} categories!")
+                
+                # Display questions by category
+                st.markdown("### 📝 Your Interview Questions")
+                
+                for category, cat_questions in questions['by_category'].items():
+                    if cat_questions:
+                        st.markdown(f"#### {category.replace('_', ' ').title()} ({len(cat_questions)} questions)")
+                        
+                        for i, q in enumerate(cat_questions, 1):
+                            difficulty = q['difficulty'].lower()
+                            difficulty_class = f"question-difficulty-{difficulty}"
+                            
+                            # Difficulty emoji
+                            diff_emoji = "🟢" if difficulty == "easy" else ("🟡" if difficulty == "medium" else "🔴")
+                            
+                            st.markdown(f"""
+                            <div class="question-card {difficulty_class}">
+                                <strong style="font-size: 1.1rem;">{i}. {q['question']}</strong>
+                                <div style="margin-top: 0.5rem; color: #94a3b8; font-size: 0.9rem;">
+                                    {diff_emoji} Difficulty: {q['difficulty']} • Category: {q['category']}
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # Show hint if available
+                            if 'hint' in q and q['hint']:
+                                with st.expander(f"💡 Hint for Question {i}"):
+                                    st.write(q['hint'])
+                
+                # Download as JSON
+                st.markdown("---")
+                st.markdown("### 📥 Export Questions")
+                
+                st.download_button(
+                    label="📄 Download Questions (JSON)",
+                    data=json.dumps(questions, indent=2),
+                    file_name="interview_questions.json",
+                    mime="application/json"
+                )
+                
+            except Exception as e:
+                st.error(f"❌ Failed to generate questions: {str(e)}")
+                st.exception(e)
+
+# ============================================================================
+# MODE 2: BUILD STAR ANSWER
+# ============================================================================
+elif "Build STAR Answer" in mode:
+    st.markdown("### ✨ STAR Method Answer Builder")
+    
+    st.markdown("""
+    <div class="star-box">
+        <h3 style="color: #60a5fa !important; margin: 0 0 1rem 0;">📚 What is the STAR Method?</h3>
+        <p style="color: #cbd5e1 !important; margin: 0;">
+            <strong>S</strong>ituation - Set the context<br>
+            <strong>T</strong>ask - Describe your responsibility<br>
+            <strong>A</strong>ction - Explain what you did<br>
+            <strong>R</strong>esult - Share the outcome
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Question input
+    question = st.text_input(
+        "Enter the interview question:",
+        placeholder="Tell me about a time when you faced a challenging technical problem...",
+        help="Paste the interview question you want to answer"
+    )
+    
+    if st.button("✨ Generate STAR Template", type="primary"):
+        if not question:
+            st.error("❌ Please enter a question")
+            st.stop()
+        
+        with st.spinner("🎯 Generating STAR framework template..."):
+            try:
+                interview_system = st.session_state.interview_system
+                star_answer = interview_system.generate_star_answer(question)
+                
+                st.session_state.star_answer = star_answer
+                st.session_state.selected_question = question
+                
+                st.success("✅ STAR template generated!")
+                
+            except Exception as e:
+                st.error(f"❌ Failed to generate template: {str(e)}")
+    
+    # Display STAR template if generated
+    if st.session_state.star_answer:
+        st.markdown("---")
+        st.markdown("### 📝 Your STAR Answer Template")
+        
+        star = st.session_state.star_answer['framework']
+        
+        # Situation
+        st.markdown(f"""
+        <div class="star-component">
+            <h4 style="color: #60a5fa !important; margin: 0 0 0.5rem 0;">🎬 Situation</h4>
+            <p style="color: #cbd5e1 !important; margin: 0 0 0.5rem 0;"><em>{star['situation']['prompt']}</em></p>
+            <p style="color: #94a3b8 !important; font-size: 0.9rem; margin: 0;">
+                💡 Tip: {star['situation']['tips'][0]}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        situation_input = st.text_area(
+            "Your Situation:",
+            placeholder="Describe the context and background...",
+            height=100,
+            key="situation"
+        )
+        
+        # Task
+        st.markdown(f"""
+        <div class="star-component">
+            <h4 style="color: #a78bfa !important; margin: 0 0 0.5rem 0;">📋 Task</h4>
+            <p style="color: #cbd5e1 !important; margin: 0 0 0.5rem 0;"><em>{star['task']['prompt']}</em></p>
+            <p style="color: #94a3b8 !important; font-size: 0.9rem; margin: 0;">
+                💡 Tip: {star['task']['tips'][0]}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        task_input = st.text_area(
+            "Your Task:",
+            placeholder="Explain your specific responsibility...",
+            height=100,
+            key="task"
+        )
+        
+        # Action
+        st.markdown(f"""
+        <div class="star-component">
+            <h4 style="color: #ec4899 !important; margin: 0 0 0.5rem 0;">⚡ Action</h4>
+            <p style="color: #cbd5e1 !important; margin: 0 0 0.5rem 0;"><em>{star['action']['prompt']}</em></p>
+            <p style="color: #94a3b8 !important; font-size: 0.9rem; margin: 0;">
+                💡 Tip: {star['action']['tips'][0]}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        action_input = st.text_area(
+            "Your Actions:",
+            placeholder="Detail the specific steps you took...",
+            height=150,
+            key="action"
+        )
+        
+        # Result
+        st.markdown(f"""
+        <div class="star-component">
+            <h4 style="color: #10b981 !important; margin: 0 0 0.5rem 0;">🎯 Result</h4>
+            <p style="color: #cbd5e1 !important; margin: 0 0 0.5rem 0;"><em>{star['result']['prompt']}</em></p>
+            <p style="color: #94a3b8 !important; font-size: 0.9rem; margin: 0;">
+                💡 Tip: {star['result']['tips'][0]}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        result_input = st.text_area(
+            "Your Results:",
+            placeholder="Share the quantifiable outcomes and impact...",
+            height=150,
+            key="result"
+        )
+        
+        # Show example answers
+        st.markdown("---")
+        
+        with st.expander("📖 See Example STAR Answers"):
+            if 'examples' in st.session_state.star_answer:
+                for i, example in enumerate(st.session_state.star_answer['examples'][:3], 1):
+                    st.markdown(f"**Example {i}: {example['scenario']}**")
+                    st.info(example['full_answer'][:400] + "...")
+                    st.markdown("---")
+
+# ============================================================================
+# MODE 3: EVALUATE ANSWER
+# ============================================================================
+elif "Evaluate My Answer" in mode:
+    st.markdown("### 📊 Evaluate Your Interview Answer")
+    
+    st.info("💡 Paste your interview answer below and get AI-powered feedback based on the STAR method!")
+    
+    # Question input
+    eval_question = st.text_area(
+        "Interview Question:",
+        placeholder="Tell me about a time when...",
+        height=80
+    )
+    
+    # Answer input
+    eval_answer = st.text_area(
+        "Your Answer:",
+        placeholder="In my previous role as...",
+        height=300,
+        help="Write your complete interview answer (200-500 words recommended)"
+    )
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        word_count = len(eval_answer.split()) if eval_answer else 0
+        st.metric("Word Count", word_count, 
+                 "✅ Good length" if 200 <= word_count <= 500 else "⚠️ Too short" if word_count < 200 else "⚠️ Too long")
+    
+    with col2:
+        if st.button("📊 Evaluate Answer", type="primary", use_container_width=True):
+            if not eval_question or not eval_answer:
+                st.error("❌ Please provide both question and answer")
+                st.stop()
+            
+            with st.spinner("🧠 Evaluating your answer..."):
+                try:
+                    interview_system = st.session_state.interview_system
+                    evaluation = interview_system.evaluate_answer(eval_question, eval_answer)
+                    
+                    st.session_state.evaluation_result = evaluation
+                    
+                    st.success("✅ Evaluation complete!")
+                    
+                except Exception as e:
+                    st.error(f"❌ Evaluation failed: {str(e)}")
+    
+    # Display evaluation results
+    if st.session_state.evaluation_result:
+        st.markdown("---")
+        st.markdown("## 🎯 Evaluation Results")
+        
+        result = st.session_state.evaluation_result
+        
+        # Overall score
+        score = result['overall_score']
+        rating = result['rating']
+        
+        # Color based on rating
+        if rating == "Excellent":
+            color = "#10b981"
+            emoji = "🌟"
+        elif rating == "Good":
+            color = "#3b82f6"
+            emoji = "✅"
+        elif rating == "Needs Improvement":
+            color = "#f59e0b"
+            emoji = "⚠️"
+        else:
+            color = "#ef4444"
+            emoji = "❌"
+        
+        st.markdown(f"""
+        <div class="score-display" style="border-color: {color};">
+            <div class="score-value" style="background: linear-gradient(135deg, {color}, {color}); 
+                 -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                {emoji} {score}/100
+            </div>
+            <div style="font-size: 1.5rem; color: {color}; margin-top: 0.5rem;">
+                {rating}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Breakdown
+        st.markdown("### 📊 Score Breakdown")
+        
+        breakdown_col1, breakdown_col2 = st.columns(2)
+        
+        with breakdown_col1:
+            st.markdown("#### STAR Components")
+            
+            for component, details in result['breakdown'].items():
+                if component != 'length':
+                    score_val = details['score']
+                    max_score = details['max_score']
+                    percentage = (score_val / max_score * 100) if max_score > 0 else 0
+                    
+                    st.metric(
+                        component.title(),
+                        f"{score_val}/{max_score}",
+                        f"{percentage:.0f}%"
+                    )
+                    st.progress(percentage / 100)
+        
+        with breakdown_col2:
+            st.markdown("#### Length Check")
+            
+            length_details = result['breakdown']['length']
+            st.metric(
+                "Word Count",
+                length_details['word_count'],
+                length_details['status']
+            )
+            st.progress(min(length_details['score'] / 20, 1.0))
+        
+        # Feedback
+        st.markdown("### 💡 Detailed Feedback")
+        
+        for feedback_item in result['feedback']:
+            if "✅" in feedback_item or "Strong" in feedback_item:
+                st.markdown(f"""
+                <div class="feedback-good">
+                    {feedback_item}
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="feedback-warning">
+                    {feedback_item}
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Suggestions
+        if result.get('suggestions'):
+            st.markdown("### 🎯 Improvement Suggestions")
+            
+            for i, suggestion in enumerate(result['suggestions'], 1):
+                st.warning(f"{i}. {suggestion}")
+
+# Help section
+with st.expander("ℹ️ Interview Preparation Tips"):
+    st.markdown("""
+    ### 🎯 STAR Method Explained
+    
+    The STAR method helps you structure behavioral interview answers:
+    
+    **S - Situation (20-25% of answer)**
+    - Set the scene and give context
+    - When and where did this happen?
+    - What was the challenge or opportunity?
+    
+    **T - Task (20-25% of answer)**
+    - What was your specific role/responsibility?
+    - What goal were you working toward?
+    - What were the stakes?
+    
+    **A - Action (30-35% of answer)**
+    - What specific steps did YOU take?
+    - What decisions did you make?
+    - How did you solve the problem?
+    - Focus on "I" not "we"
+    
+    **R - Result (20-25% of answer)**
+    - What was the outcome?
+    - Include quantifiable metrics
+    - What did you learn?
+    - How did it benefit the company/team?
+    
+    ---
+    
+    ### 💡 Best Practices
+    
+    **Before the Interview:**
+    - ✅ Prepare 5-7 STAR stories covering different competencies
+    - ✅ Practice out loud (not just in your head)
+    - ✅ Time yourself (aim for 2-3 minutes per answer)
+    - ✅ Quantify results whenever possible
+    
+    **During the Interview:**
+    - ✅ Take a moment to think before answering
+    - ✅ Speak clearly and confidently
+    - ✅ Make eye contact (or camera contact for video)
+    - ✅ Use specific examples, not generalities
+    
+    **Common Mistakes to Avoid:**
+    - ❌ Being too vague or generic
+    - ❌ Talking about "we" instead of "I"
+    - ❌ Forgetting to mention results
+    - ❌ Making your answer too long (>3 minutes)
+    - ❌ Not preparing enough examples in advance
+    
+    ---
+    
+    ### 📚 Question Categories
+    
+    **Behavioral Questions**
+    - Leadership, teamwork, problem-solving
+    - Use STAR method
+    - Example: "Tell me about a time when..."
+    
+    **Technical Questions**
+    - Skill-specific knowledge
+    - Explain concepts clearly
+    - Example: "What is the difference between..."
+    
+    **Coding Questions**
+    - Live problem-solving
+    - Think out loud
+    - Example: "Write a function to..."
+    
+    **System Design Questions**
+    - Architecture and scalability
+    - Discuss trade-offs
+    - Example: "How would you design..."
+    """)

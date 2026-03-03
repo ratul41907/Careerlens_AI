@@ -189,44 +189,64 @@ class InterviewGuidanceSystem:
         """
         logger.info(f"Generating {num_questions} interview questions for skills: {skills}")
         
-        recommended = {
-            'behavioral': [],
-            'technical': [],
-            'coding': [],
-            'system_design': []
-        }
+        recommended = []
         
         # Add behavioral questions
         if include_behavioral:
-            recommended['behavioral'] = self.question_database['behavioral'][:3]
+            for q in self.question_database['behavioral']:
+                recommended.append({
+                    'question': q['question'],
+                    'category': 'Behavioral',
+                    'difficulty': q['difficulty'],
+                    'hint': f"Use STAR method: {q['star_example']['situation'][:50]}..."
+                })
         
         # Add technical questions matching skills
         for question in self.question_database['technical']:
             if any(skill.lower() in question.get('skill', '').lower() for skill in skills):
-                recommended['technical'].append(question)
+                recommended.append({
+                    'question': question['question'],
+                    'category': 'Technical',
+                    'difficulty': question['difficulty'],
+                    'hint': question['answer_points'][0] if question.get('answer_points') else None
+                })
         
         # Add coding questions
         for question in self.question_database['coding']:
             if any(skill.lower() in question.get('skill', '').lower() for skill in skills):
-                recommended['coding'].append(question)
+                recommended.append({
+                    'question': question['question'],
+                    'category': 'Coding',
+                    'difficulty': question['difficulty'],
+                    'hint': ', '.join(question.get('concepts', []))
+                })
         
         # Add system design for senior roles
-        recommended['system_design'] = self.question_database['system_design'][:2]
+        for q in self.question_database['system_design'][:2]:
+            recommended.append({
+                'question': q['question'],
+                'category': 'System Design',
+                'difficulty': q['difficulty'],
+                'hint': q['key_components'][0] if q.get('key_components') else None
+            })
         
-        # Calculate totals
-        total_questions = (len(recommended['behavioral']) + 
-                          len(recommended['technical']) + 
-                          len(recommended['coding']) +
-                          len(recommended['system_design']))
+        # Group by category
+        by_category = {}
+        for q in recommended:
+            category = q['category']
+            if category not in by_category:
+                by_category[category] = []
+            by_category[category].append(q)
         
         result = {
-            'total_questions': total_questions,
-            'questions_by_category': recommended,
+            'total_questions': len(recommended),
+            'by_category': by_category,
+            'questions_by_category': by_category,  # Backward compatibility
             'preparation_tips': self._generate_prep_tips(skills),
             'difficulty_breakdown': self._calculate_difficulty_breakdown(recommended)
         }
         
-        logger.info(f"Generated {total_questions} questions across {len(recommended)} categories")
+        logger.info(f"Generated {len(recommended)} questions across {len(by_category)} categories")
         return result
     
     def generate_star_answer(self,
@@ -300,7 +320,20 @@ class InterviewGuidanceSystem:
                     ]
                 }
             },
-            'example_answer': self._generate_example_answer(question, template_type),
+            'examples': [
+                {
+                    'scenario': 'Problem Solving',
+                    'full_answer': self._generate_example_answer(question, 'problem_solving')
+                },
+                {
+                    'scenario': 'Team Collaboration',
+                    'full_answer': self._generate_example_answer(question, 'collaboration')
+                },
+                {
+                    'scenario': 'Achievement',
+                    'full_answer': self._generate_example_answer(question, 'achievement')
+                }
+            ],
             'common_mistakes': [
                 '❌ Being too vague - use specific examples',
                 '❌ Focusing on "we" instead of "I"',
@@ -373,106 +406,158 @@ class InterviewGuidanceSystem:
         
         return tips
     
-    def _calculate_difficulty_breakdown(self, questions: Dict) -> Dict:
+    def _calculate_difficulty_breakdown(self, questions: List[Dict]) -> Dict:
         """Calculate difficulty distribution"""
         difficulty_count = {'Easy': 0, 'Medium': 0, 'Hard': 0}
         
-        for category in questions.values():
-            for q in category:
-                diff = q.get('difficulty', 'Medium')
-                difficulty_count[diff] = difficulty_count.get(diff, 0) + 1
+        for q in questions:
+            diff = q.get('difficulty', 'Medium')
+            difficulty_count[diff] = difficulty_count.get(diff, 0) + 1
         
         return difficulty_count
     
-    def evaluate_answer(self, answer: str) -> Dict:
+    def evaluate_answer(self, question: str, answer: str) -> Dict:
         """
-        Evaluate an interview answer
+        Evaluate an interview answer based on STAR method
         
         Args:
-            answer: User's answer text
+            question: The interview question
+            answer: The candidate's answer
             
         Returns:
-            Evaluation with score and feedback
+            Evaluation results with score and feedback
         """
-        score = 0
-        feedback = []
-        
-        # Check length (200-500 words ideal)
+        # Word count
         word_count = len(answer.split())
+        
+        # Length score (20 points max)
         if 200 <= word_count <= 500:
-            score += 20
-            feedback.append("✅ Good length (2-minute answer)")
+            length_score = 20
+            length_status = "✅ Good length"
         elif word_count < 200:
-            score += 10
-            feedback.append("⚠️ Too brief - add more details")
+            length_score = max(0, int(word_count / 200 * 20))
+            length_status = "⚠️ Too short - add more detail"
         else:
-            score += 15
-            feedback.append("⚠️ Too long - be more concise")
+            length_score = max(10, 20 - int((word_count - 500) / 100 * 2))
+            length_status = "⚠️ Too long - be more concise"
         
-        # Check for STAR elements
-        has_situation = any(word in answer.lower() for word in ['situation', 'when', 'while', 'during'])
-        has_task = any(word in answer.lower() for word in ['task', 'responsible', 'goal', 'objective'])
-        has_action = any(word in answer.lower() for word in ['i ', 'implemented', 'developed', 'created'])
-        has_result = any(word in answer.lower() for word in ['result', 'achieved', 'improved', '%'])
+        # Check for STAR components (case-insensitive)
+        answer_lower = answer.lower()
         
-        if has_situation:
-            score += 20
-            feedback.append("✅ Situation clearly described")
-        else:
-            feedback.append("❌ Missing context/situation")
+        # Situation (20 points)
+        situation_keywords = ['situation', 'context', 'background', 'challenge', 'faced', 'when']
+        situation_score = 20 if any(kw in answer_lower for kw in situation_keywords) else 5
         
-        if has_task:
-            score += 20
-            feedback.append("✅ Task/responsibility mentioned")
-        else:
-            feedback.append("❌ Unclear what your specific role was")
+        # Task (20 points)
+        task_keywords = ['task', 'responsibility', 'role', 'goal', 'objective', 'needed to']
+        task_score = 20 if any(kw in answer_lower for kw in task_keywords) else 5
         
-        if has_action:
-            score += 20
-            feedback.append("✅ Actions described")
-        else:
-            feedback.append("❌ Need more detail on what YOU did")
+        # Action (20 points) - should be substantial
+        action_keywords = ['i developed', 'i created', 'i implemented', 'i designed', 
+                          'i built', 'i led', 'i organized', 'my approach', 'i decided']
+        action_count = sum(1 for kw in action_keywords if kw in answer_lower)
+        action_score = min(20, action_count * 7)
         
-        if has_result:
-            score += 20
-            feedback.append("✅ Results included")
-        else:
-            feedback.append("❌ Missing quantified results")
+        # Result (20 points)
+        result_keywords = ['result', 'outcome', 'achieved', 'increased', 'decreased', 
+                          'improved', 'reduced', '%', 'impact', 'delivered']
+        result_count = sum(1 for kw in result_keywords if kw in answer_lower)
+        result_score = min(20, result_count * 5)
         
-        # Overall rating
-        if score >= 80:
+        # Calculate overall score
+        overall_score = length_score + situation_score + task_score + action_score + result_score
+        
+        # Rating
+        if overall_score >= 80:
             rating = "Excellent"
-        elif score >= 60:
+        elif overall_score >= 60:
             rating = "Good"
-        elif score >= 40:
+        elif overall_score >= 40:
             rating = "Needs Improvement"
         else:
             rating = "Poor"
         
-        return {
-            'score': score,
-            'rating': rating,
-            'word_count': word_count,
-            'feedback': feedback,
-            'suggestions': self._generate_improvement_suggestions(score, feedback)
-        }
-    
-    def _generate_improvement_suggestions(self, score: int, feedback: List[str]) -> List[str]:
-        """Generate specific improvement suggestions"""
+        # Generate feedback
+        feedback = []
+        
+        if length_score < 15:
+            if word_count < 200:
+                feedback.append("⚠️ Answer too brief - add more details about the situation and your actions")
+            else:
+                feedback.append("⚠️ Answer too long - focus on the most important points")
+        else:
+            feedback.append("✅ Good answer length")
+        
+        if situation_score < 15:
+            feedback.append("❌ Missing situation/context - set the scene for your story")
+        else:
+            feedback.append("✅ Situation described")
+        
+        if task_score < 15:
+            feedback.append("❌ Missing task/responsibility - explain what you needed to do")
+        else:
+            feedback.append("✅ Task/responsibility clear")
+        
+        if action_score < 15:
+            feedback.append("❌ Actions not detailed enough - explain specific steps YOU took (use 'I' not 'we')")
+        else:
+            feedback.append("✅ Actions well described")
+        
+        if result_score < 15:
+            feedback.append("❌ Results missing or vague - include quantifiable outcomes")
+        else:
+            feedback.append("✅ Results included")
+        
+        # Suggestions for improvement
         suggestions = []
         
-        if score < 80:
-            suggestions.append("Practice the STAR method with real examples from your experience")
+        if situation_score < 15:
+            suggestions.append("Add context: When and where did this happen? What was the challenge?")
         
-        if any('Missing' in f or '❌' in f for f in feedback):
-            suggestions.append("Ensure all four STAR components are present: Situation, Task, Action, Result")
+        if task_score < 15:
+            suggestions.append("Clarify your role: What were you specifically responsible for?")
         
-        if 'quantified' in str(feedback).lower():
-            suggestions.append("Add specific numbers: percentages, time saved, users impacted, etc.")
+        if action_score < 15:
+            suggestions.append("Detail your actions: What specific steps did YOU take? Focus on 'I' statements.")
         
-        suggestions.append("Record yourself answering and play it back to identify areas for improvement")
+        if result_score < 15:
+            suggestions.append("Quantify results: Include numbers, percentages, or measurable outcomes.")
         
-        return suggestions
+        if word_count < 200:
+            suggestions.append("Expand your answer with more specific examples and details.")
+        
+        return {
+            'overall_score': overall_score,
+            'rating': rating,
+            'breakdown': {
+                'length': {
+                    'score': length_score,
+                    'max_score': 20,
+                    'word_count': word_count,
+                    'status': length_status
+                },
+                'situation': {
+                    'score': situation_score,
+                    'max_score': 20
+                },
+                'task': {
+                    'score': task_score,
+                    'max_score': 20
+                },
+                'action': {
+                    'score': action_score,
+                    'max_score': 20
+                },
+                'result': {
+                    'score': result_score,
+                    'max_score': 20
+                }
+            },
+            'feedback': feedback,
+            'suggestions': suggestions,
+            'question': question,
+            'answer_preview': answer[:200] + "..." if len(answer) > 200 else answer
+        }
 
 
 # Convenience function
