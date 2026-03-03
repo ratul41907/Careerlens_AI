@@ -546,7 +546,7 @@ TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
 
 | Member | Role | Contribution |
 |--------|------|--------------|
-| **Arafat Zaman Ratul** | Lead Developer | Core matching engine (Days 1-6) |
+| **Arafat Zaman Ratul** | AI Developer | Core matching engine (Days 1-6) |
 | **Hasibul Islam Rony** | AI Engineer | LLM & counterfactual (Days 7-8) |
 | **Ashikur Rahman** | Backend Engineer | CV generation & validation (Days 9-11) |
 | **Mahfuzur Rahman Sazid** | Frontend Developer | UI & analytics (Days 12-16) |
