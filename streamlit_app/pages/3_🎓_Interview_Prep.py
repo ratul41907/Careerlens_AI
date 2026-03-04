@@ -5,6 +5,8 @@ import streamlit as st
 import sys
 from pathlib import Path
 import json
+import os
+from datetime import datetime
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -263,16 +265,189 @@ if "Get Interview Questions" in mode:
                                 with st.expander(f"💡 Hint for Question {i}"):
                                     st.write(q['hint'])
                 
-                # Download as JSON
+                # Download options
                 st.markdown("---")
                 st.markdown("### 📥 Export Questions")
                 
-                st.download_button(
-                    label="📄 Download Questions (JSON)",
-                    data=json.dumps(questions, indent=2),
-                    file_name="interview_questions.json",
-                    mime="application/json"
-                )
+                export_col1, export_col2, export_col3 = st.columns(3)
+                
+                with export_col1:
+                    # JSON Download
+                    st.download_button(
+                        label="📄 JSON",
+                        data=json.dumps(questions, indent=2),
+                        file_name="interview_questions.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+                
+                with export_col2:
+                    # DOCX Download
+                    try:
+                        from docx import Document
+                        from docx.shared import Pt
+                        from docx.enum.text import WD_ALIGN_PARAGRAPH
+                        import io
+                        
+                        # Create document
+                        doc = Document()
+                        
+                        # Title
+                        title = doc.add_heading('Interview Questions', 0)
+                        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        
+                        # Add metadata
+                        doc.add_paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y')}")
+                        doc.add_paragraph(f"Total Questions: {questions['total_questions']}")
+                        doc.add_paragraph(f"Skills: {', '.join(skills)}")
+                        doc.add_paragraph()
+                        
+                        # Add questions by category
+                        for category, cat_questions in questions['by_category'].items():
+                            if cat_questions:
+                                # Category heading
+                                doc.add_heading(f"{category} ({len(cat_questions)} questions)", level=1)
+                                
+                                for i, q in enumerate(cat_questions, 1):
+                                    # Question number and text
+                                    p = doc.add_paragraph()
+                                    p.add_run(f"Q{i}. ").bold = True
+                                    p.add_run(q['question'])
+                                    
+                                    # Difficulty
+                                    diff_p = doc.add_paragraph()
+                                    diff_run = diff_p.add_run(f"Difficulty: {q['difficulty']}")
+                                    diff_run.font.size = Pt(10)
+                                    
+                                    # Hint if available
+                                    if q.get('hint'):
+                                        hint_p = doc.add_paragraph()
+                                        hint_run = hint_p.add_run(f"Hint: {q['hint']}")
+                                        hint_run.font.size = Pt(10)
+                                        hint_run.font.italic = True
+                                    
+                                    doc.add_paragraph()  # Spacing
+                        
+                        # Add preparation tips
+                        doc.add_page_break()
+                        doc.add_heading('Preparation Tips', level=1)
+                        for tip in questions['preparation_tips']:
+                            doc.add_paragraph(tip, style='List Bullet')
+                        
+                        # Save to bytes
+                        docx_buffer = io.BytesIO()
+                        doc.save(docx_buffer)
+                        docx_bytes = docx_buffer.getvalue()
+                        
+                        st.download_button(
+                            label="📝 DOCX",
+                            data=docx_bytes,
+                            file_name=f"interview_questions_{datetime.now().strftime('%Y%m%d')}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True
+                        )
+                        
+                    except Exception as e:
+                        st.warning("⚠️ DOCX export unavailable. Download JSON instead.")
+                
+                with export_col3:
+                    # PDF Generation Button
+                    if st.button("🔄 Generate PDF", use_container_width=True, key="pdf_questions_btn"):
+                        try:
+                            from docx import Document
+                            from docx.shared import Pt
+                            from docx.enum.text import WD_ALIGN_PARAGRAPH
+                            import io
+                            import tempfile
+                            
+                            # Create DOCX first
+                            doc = Document()
+                            
+                            # Title
+                            title = doc.add_heading('Interview Questions', 0)
+                            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                            
+                            # Add metadata
+                            doc.add_paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y')}")
+                            doc.add_paragraph(f"Total Questions: {questions['total_questions']}")
+                            doc.add_paragraph(f"Skills: {', '.join(skills)}")
+                            doc.add_paragraph()
+                            
+                            # Add questions by category
+                            for category, cat_questions in questions['by_category'].items():
+                                if cat_questions:
+                                    doc.add_heading(f"{category} ({len(cat_questions)} questions)", level=1)
+                                    
+                                    for i, q in enumerate(cat_questions, 1):
+                                        p = doc.add_paragraph()
+                                        p.add_run(f"Q{i}. ").bold = True
+                                        p.add_run(q['question'])
+                                        
+                                        diff_p = doc.add_paragraph()
+                                        diff_run = diff_p.add_run(f"Difficulty: {q['difficulty']}")
+                                        diff_run.font.size = Pt(10)
+                                        
+                                        if q.get('hint'):
+                                            hint_p = doc.add_paragraph()
+                                            hint_run = hint_p.add_run(f"Hint: {q['hint']}")
+                                            hint_run.font.size = Pt(10)
+                                            hint_run.font.italic = True
+                                        
+                                        doc.add_paragraph()
+                            
+                            # Add preparation tips
+                            doc.add_page_break()
+                            doc.add_heading('Preparation Tips', level=1)
+                            for tip in questions['preparation_tips']:
+                                doc.add_paragraph(tip, style='List Bullet')
+                            
+                            # Save DOCX temporarily
+                            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_docx:
+                                doc.save(tmp_docx.name)
+                                tmp_docx_path = tmp_docx.name
+                            
+                            # Try to convert to PDF
+                            try:
+                                from docx2pdf import convert
+                                
+                                pdf_path = tmp_docx_path.replace('.docx', '.pdf')
+                                convert(tmp_docx_path, pdf_path)
+                                
+                                with open(pdf_path, 'rb') as pdf_file:
+                                    pdf_bytes = pdf_file.read()
+                                
+                                # Clean up
+                                os.unlink(tmp_docx_path)
+                                os.unlink(pdf_path)
+                                
+                                # Store in session state
+                                st.session_state.questions_pdf = pdf_bytes
+                                st.success("✅ PDF generated!")
+                                st.rerun()
+                                
+                            except ImportError:
+                                st.warning("""
+                                ⚠️ PDF conversion not available.
+                                
+                                **Options:**
+                                1. Download DOCX and convert using Word
+                                2. Download DOCX and upload to Google Docs → Download as PDF
+                                """)
+                                os.unlink(tmp_docx_path)
+                                
+                        except Exception as e:
+                            st.error(f"❌ PDF generation failed: {str(e)}")
+                
+                # Show PDF download if available
+                if 'questions_pdf' in st.session_state and st.session_state.questions_pdf:
+                    st.markdown("---")
+                    st.download_button(
+                        label="📕 Download PDF",
+                        data=st.session_state.questions_pdf,
+                        file_name=f"interview_questions_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
                 
             except Exception as e:
                 st.error(f"❌ Failed to generate questions: {str(e)}")
