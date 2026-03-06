@@ -194,7 +194,7 @@ st.markdown("""
 # Two modes: Practice Questions or STAR Builder
 mode = st.radio(
     "Choose your practice mode:",
-    ["🎯 Get Interview Questions", "✨ Build STAR Answer", "📊 Evaluate My Answer"],
+    ["🎯 Get Interview Questions", "📊 Evaluate My Answer"],
     horizontal=True
 )
 
@@ -453,137 +453,6 @@ if "Get Interview Questions" in mode:
                 st.error(f"❌ Failed to generate questions: {str(e)}")
                 st.exception(e)
 
-# ============================================================================
-# MODE 2: BUILD STAR ANSWER
-# ============================================================================
-elif "Build STAR Answer" in mode:
-    st.markdown("### ✨ STAR Method Answer Builder")
-    
-    st.markdown("""
-    <div class="star-box">
-        <h3 style="color: #60a5fa !important; margin: 0 0 1rem 0;">📚 What is the STAR Method?</h3>
-        <p style="color: #cbd5e1 !important; margin: 0;">
-            <strong>S</strong>ituation - Set the context<br>
-            <strong>T</strong>ask - Describe your responsibility<br>
-            <strong>A</strong>ction - Explain what you did<br>
-            <strong>R</strong>esult - Share the outcome
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Question input
-    question = st.text_input(
-        "Enter the interview question:",
-        placeholder="Tell me about a time when you faced a challenging technical problem...",
-        help="Paste the interview question you want to answer"
-    )
-    
-    if st.button("✨ Generate STAR Template", type="primary"):
-        if not question:
-            st.error("❌ Please enter a question")
-            st.stop()
-        
-        with st.spinner("🎯 Generating STAR framework template..."):
-            try:
-                interview_system = st.session_state.interview_system
-                star_answer = interview_system.generate_star_answer(question)
-                
-                st.session_state.star_answer = star_answer
-                st.session_state.selected_question = question
-                
-                st.success("✅ STAR template generated!")
-                
-            except Exception as e:
-                st.error(f"❌ Failed to generate template: {str(e)}")
-    
-    # Display STAR template if generated
-    if st.session_state.star_answer:
-        st.markdown("---")
-        st.markdown("### 📝 Your STAR Answer Template")
-        
-        star = st.session_state.star_answer['framework']
-        
-        # Situation
-        st.markdown(f"""
-        <div class="star-component">
-            <h4 style="color: #60a5fa !important; margin: 0 0 0.5rem 0;">🎬 Situation</h4>
-            <p style="color: #cbd5e1 !important; margin: 0 0 0.5rem 0;"><em>{star['situation']['prompt']}</em></p>
-            <p style="color: #94a3b8 !important; font-size: 0.9rem; margin: 0;">
-                💡 Tip: {star['situation']['tips'][0]}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        situation_input = st.text_area(
-            "Your Situation:",
-            placeholder="Describe the context and background...",
-            height=100,
-            key="situation"
-        )
-        
-        # Task
-        st.markdown(f"""
-        <div class="star-component">
-            <h4 style="color: #a78bfa !important; margin: 0 0 0.5rem 0;">📋 Task</h4>
-            <p style="color: #cbd5e1 !important; margin: 0 0 0.5rem 0;"><em>{star['task']['prompt']}</em></p>
-            <p style="color: #94a3b8 !important; font-size: 0.9rem; margin: 0;">
-                💡 Tip: {star['task']['tips'][0]}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        task_input = st.text_area(
-            "Your Task:",
-            placeholder="Explain your specific responsibility...",
-            height=100,
-            key="task"
-        )
-        
-        # Action
-        st.markdown(f"""
-        <div class="star-component">
-            <h4 style="color: #ec4899 !important; margin: 0 0 0.5rem 0;">⚡ Action</h4>
-            <p style="color: #cbd5e1 !important; margin: 0 0 0.5rem 0;"><em>{star['action']['prompt']}</em></p>
-            <p style="color: #94a3b8 !important; font-size: 0.9rem; margin: 0;">
-                💡 Tip: {star['action']['tips'][0]}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        action_input = st.text_area(
-            "Your Actions:",
-            placeholder="Detail the specific steps you took...",
-            height=150,
-            key="action"
-        )
-        
-        # Result
-        st.markdown(f"""
-        <div class="star-component">
-            <h4 style="color: #10b981 !important; margin: 0 0 0.5rem 0;">🎯 Result</h4>
-            <p style="color: #cbd5e1 !important; margin: 0 0 0.5rem 0;"><em>{star['result']['prompt']}</em></p>
-            <p style="color: #94a3b8 !important; font-size: 0.9rem; margin: 0;">
-                💡 Tip: {star['result']['tips'][0]}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        result_input = st.text_area(
-            "Your Results:",
-            placeholder="Share the quantifiable outcomes and impact...",
-            height=150,
-            key="result"
-        )
-        
-        # Show example answers
-        st.markdown("---")
-        
-        with st.expander("📖 See Example STAR Answers"):
-            if 'examples' in st.session_state.star_answer:
-                for i, example in enumerate(st.session_state.star_answer['examples'][:3], 1):
-                    st.markdown(f"**Example {i}: {example['scenario']}**")
-                    st.info(example['full_answer'][:400] + "...")
-                    st.markdown("---")
 
 # ============================================================================
 # MODE 3: EVALUATE ANSWER
