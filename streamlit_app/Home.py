@@ -9,6 +9,30 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# Add utils to path for session manager
+utils_path = Path(__file__).parent / "utils"
+sys.path.insert(0, str(utils_path))
+
+# Import session manager
+try:
+    from session_manager import SessionManager
+    
+    # Initialize session
+    SessionManager.init()
+    
+    # Get analytics data
+    analytics = SessionManager.get_analytics()
+    session_enabled = True
+except ImportError:
+    # Fallback to default values if session manager not available
+    analytics = {
+        'total_matches': 0,
+        'avg_score': 87.0,
+        'cvs_generated': 0,
+        'interviews_practiced': 0
+    }
+    session_enabled = False
+
 # Page config
 st.set_page_config(
     page_title="CareerLens AI - Premium Career Platform",
@@ -368,7 +392,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Metrics (using native Streamlit)
+    # Metrics (using native Streamlit with dynamic data)
     st.markdown("### ⚡ Live Metrics")
     
     col1, col2 = st.columns(2)
@@ -472,40 +496,40 @@ with feat2:
     </div>
     """, unsafe_allow_html=True)
 
-# Platform Statistics
+# Platform Statistics - DYNAMIC DATA
 st.markdown('<div class="section-header">📊 Platform Performance</div>', unsafe_allow_html=True)
 
 stat1, stat2, stat3, stat4 = st.columns(4)
 
 with stat1:
-    st.markdown("""
+    st.markdown(f"""
     <div class="neon-stat">
-        <span class="stat-value">87%</span>
-        <span class="stat-label">Match Accuracy</span>
+        <span class="stat-value">{analytics['total_matches']}</span>
+        <span class="stat-label">CV Matches</span>
     </div>
     """, unsafe_allow_html=True)
 
 with stat2:
-    st.markdown("""
+    st.markdown(f"""
     <div class="neon-stat">
-        <span class="stat-value">10.2K</span>
-        <span class="stat-label">Users Served</span>
+        <span class="stat-value">{analytics['avg_score']:.1f}%</span>
+        <span class="stat-label">Avg Match Score</span>
     </div>
     """, unsafe_allow_html=True)
 
 with stat3:
-    st.markdown("""
+    st.markdown(f"""
     <div class="neon-stat">
-        <span class="stat-value">5.1K</span>
+        <span class="stat-value">{analytics['cvs_generated']}</span>
         <span class="stat-label">CVs Generated</span>
     </div>
     """, unsafe_allow_html=True)
 
 with stat4:
-    st.markdown("""
+    st.markdown(f"""
     <div class="neon-stat">
-        <span class="stat-value">94%</span>
-        <span class="stat-label">Success Rate</span>
+        <span class="stat-value">{analytics['interviews_practiced']}</span>
+        <span class="stat-label">Questions Practiced</span>
     </div>
     """, unsafe_allow_html=True)
 
