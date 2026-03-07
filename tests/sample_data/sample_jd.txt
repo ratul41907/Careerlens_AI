@@ -1,0 +1,25 @@
+Senior Backend Engineer
+
+We're looking for an experienced Backend Engineer to join our team!
+
+Requirements:
+- 5+ years of Python development experience
+- Strong experience with FastAPI or Django
+- Proficiency with Docker and Kubernetes
+- AWS cloud experience required
+- PostgreSQL database expertise
+- RESTful API design skills
+- Experience with microservices architecture
+
+Preferred Skills:
+- Redis caching
+- GraphQL
+- CI/CD pipeline setup
+- Team leadership experience
+- React knowledge (nice to have)
+
+Responsibilities:
+- Design and implement scalable backend services
+- Optimize database queries and API performance
+- Mentor junior developers
+- Collaborate with frontend and DevOps teams

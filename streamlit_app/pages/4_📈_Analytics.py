@@ -86,35 +86,41 @@ st.markdown("""
 
 # Initialize session state for demo data
 if 'analytics_data' not in st.session_state:
+    # Create match history
+    match_history = []
+    for i in range(30):
+        date = datetime.now() - timedelta(days=29-i)
+        score = random.randint(55, 95)
+        match_history.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'score': score
+        })
+    
+    # Create skill gaps
+    skill_gaps = {
+        'Docker': 15,
+        'Kubernetes': 14,
+        'AWS': 13,
+        'React': 11,
+        'MongoDB': 10,
+        'Redis': 9,
+        'GraphQL': 7,
+        'TypeScript': 5
+    }
+    
     # Generate sample analytics data
     st.session_state.analytics_data = {
         'total_matches': 47,
         'avg_score': 73.5,
         'cvs_generated': 12,
         'interviews_practiced': 23,
-        'match_history': [],
-        'skill_gaps': {}
+        'match_history': match_history,
+        'skill_gaps': skill_gaps
     }
-    
-    # Generate match history (last 30 days)
-    for i in range(30):
-        date = datetime.now() - timedelta(days=29-i)
-        score = random.randint(55, 95)
-        st.session_state.analytics_data['match_history'].append({
-            'date': date.strftime('%Y-%m-%d'),
-            'score': score
-        })
-    
-    # Generate skill gaps
-    skills = ['Docker', 'Kubernetes', 'AWS', 'React', 'MongoDB', 'Redis', 'GraphQL', 'TypeScript']
-    for skill in skills:
-        st.session_state.analytics_data['skill_gaps'][skill] = random.randint(3, 15)
 
 # Warning about demo data
-st.warning("""
-⚠️ **Demo Data Notice:** 
-This dashboard currently shows simulated demo data for visualization purposes. 
-In production, it will track real user activity from CV matches, CV generations, and interview prep sessions.
+st.info("""
+💡 **Note:** This dashboard shows demo visualization data. The Home page stats track your actual session activity.
 """)
 
 # Title
@@ -616,8 +622,6 @@ with export_col2:
         # Match Score Trends
         doc.add_heading('Match Score Trends (Last 30 Days)', level=1)
         
-        match_df = pd.DataFrame(data['match_history'])
-        
         doc.add_paragraph(f"Latest Score: {match_df.iloc[-1]['score']}%")
         doc.add_paragraph(f"Highest Score: {match_df['score'].max()}%")
         doc.add_paragraph(f"Lowest Score: {match_df['score'].min()}%")
@@ -631,10 +635,8 @@ with export_col2:
         doc.add_paragraph("These skills are most frequently missing from your CV matches:")
         doc.add_paragraph()
         
-        sorted_skills = sorted(data['skill_gaps'].items(), key=lambda x: x[1], reverse=True)
-        
-        for i, (skill, freq) in enumerate(sorted_skills[:10], 1):
-            doc.add_paragraph(f"{i}. {skill} - Missing {freq} times", style='List Bullet')
+        for i, row in skill_gap_df.iterrows():
+            doc.add_paragraph(f"{i+1}. {row['skill']} - Missing {row['frequency']} times", style='List Bullet')
         
         doc.add_paragraph()
         
