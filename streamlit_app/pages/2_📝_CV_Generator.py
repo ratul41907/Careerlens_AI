@@ -1,6 +1,5 @@
 """
-CV Generator Page - Create ATS-Optimized CVs
-UPDATE_01: Auto-generate from JD + Document upload
+CV Generator Page - Enhanced with Error Handling and Validation
 """
 import streamlit as st
 import sys
@@ -10,6 +9,7 @@ from datetime import datetime
 import os
 import tempfile
 import re
+import time
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -116,6 +116,12 @@ st.markdown("""
         color: #f59e0b !important;
     }
     
+    .stError {
+        background: rgba(239, 68, 68, 0.1) !important;
+        border: 1px solid rgba(239, 68, 68, 0.3) !important;
+        color: #ef4444 !important;
+    }
+    
     /* Section dividers */
     hr {
         border-color: rgba(96, 165, 250, 0.2) !important;
@@ -162,10 +168,6 @@ if 'cv_bytes_docx' not in st.session_state:
     st.session_state.cv_bytes_docx = None
 if 'cv_html' not in st.session_state:
     st.session_state.cv_html = None
-if 'jd_skills' not in st.session_state:
-    st.session_state.jd_skills = []
-if 'target_jd' not in st.session_state:
-    st.session_state.target_jd = None
 
 # Title
 st.markdown("""
@@ -174,33 +176,34 @@ st.markdown("""
     📝 Smart CV Generator
 </h1>
 <p style="color: #94a3b8 !important; font-size: 1.25rem; margin-bottom: 2rem;">
-    🆕 Auto-optimize for job descriptions • Upload documents • ATS-friendly formatting
+    Create ATS-optimized professional CVs • Multiple generation modes
 </p>
 """, unsafe_allow_html=True)
 
-# NEW: Generation mode selector
+# Generation mode selector
 st.markdown("### 🎯 Choose Generation Mode")
 
 generation_mode = st.radio(
     "How would you like to create your CV?",
     [
-        "📝 Manual Entry (Fill forms manually)",
-        "🎯 Auto-Generate from Job Description (Smart matching)",
-        "📄 Extract from Documents (Upload certificates/transcripts)"
+        "📝 Manual Entry",
+        "🎯 Auto-Generate from Job Description",
+        "📄 Extract from Documents"
     ],
-    label_visibility="collapsed"
+    label_visibility="collapsed",
+    help="Choose your preferred CV creation method"
 )
 
 st.markdown("---")
 
 # ============================================================================
-# MODE 1: MANUAL ENTRY (ORIGINAL - KEEPING EXACTLY AS BEFORE)
+# MODE 1: MANUAL ENTRY WITH ENHANCED VALIDATION
 # ============================================================================
 if "Manual Entry" in generation_mode:
-    st.info("💡 Fill in your information below. The more detail you provide, the better your CV will be!")
+    st.info("💡 Fill in your information below. Required fields are marked with *")
     
     # Create tabs for organized input
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 Personal Info", "💼 Experience", "🎓 Education & Skills", "🎨 Projects & Certifications"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 Personal Info", "💼 Experience", "🎓 Education & Skills", "🎨 Projects"])
     
     # TAB 1: Personal Information
     with tab1:
@@ -209,29 +212,37 @@ if "Manual Entry" in generation_mode:
         col1, col2 = st.columns(2)
         
         with col1:
-            name = st.text_input("Full Name *", placeholder="John Doe")
-            email = st.text_input("Email *", placeholder="john.doe@email.com")
-            phone = st.text_input("Phone Number *", placeholder="+1-234-567-8900")
+            name = st.text_input("Full Name *", placeholder="John Doe", help="Your full name as it should appear on the CV")
+            email = st.text_input("Email *", placeholder="john.doe@email.com", help="Professional email address")
+            phone = st.text_input("Phone Number *", placeholder="+1-234-567-8900", help="Include country code")
         
         with col2:
-            location = st.text_input("Location", placeholder="San Francisco, CA")
-            linkedin = st.text_input("LinkedIn URL", placeholder="linkedin.com/in/johndoe")
-            github = st.text_input("GitHub URL (optional)", placeholder="github.com/johndoe")
+            location = st.text_input("Location", placeholder="San Francisco, CA", help="City, State/Country")
+            linkedin = st.text_input("LinkedIn URL", placeholder="linkedin.com/in/johndoe", help="Your LinkedIn profile URL")
+            github = st.text_input("GitHub URL", placeholder="github.com/johndoe", help="Your GitHub profile (optional)")
         
         st.markdown("---")
         
         st.markdown("### 📄 Professional Summary")
         summary = st.text_area(
-            "Write a brief 2-3 sentence summary highlighting your key qualifications",
-            placeholder="Results-driven Software Engineer with 5+ years of experience in building scalable applications...",
-            height=120
+            "Brief 2-3 sentence summary (optional)",
+            placeholder="Results-driven Software Engineer with 5+ years of experience...",
+            height=120,
+            help="Highlight your key qualifications and career focus"
         )
     
     # TAB 2: Work Experience
     with tab2:
         st.markdown("### 💼 Work Experience")
         
-        num_experiences = st.number_input("Number of work experiences to add", min_value=0, max_value=10, value=2, step=1)
+        num_experiences = st.number_input(
+            "Number of work experiences",
+            min_value=0,
+            max_value=10,
+            value=2,
+            step=1,
+            help="Add your most recent positions first"
+        )
         
         experiences = []
         
@@ -240,19 +251,38 @@ if "Manual Entry" in generation_mode:
                 exp_col1, exp_col2 = st.columns(2)
                 
                 with exp_col1:
-                    job_title = st.text_input(f"Job Title *", key=f"job_title_{i}", placeholder="Senior Software Engineer")
-                    company = st.text_input(f"Company *", key=f"company_{i}", placeholder="Tech Corp")
+                    job_title = st.text_input(
+                        f"Job Title *",
+                        key=f"job_title_{i}",
+                        placeholder="Senior Software Engineer"
+                    )
+                    company = st.text_input(
+                        f"Company *",
+                        key=f"company_{i}",
+                        placeholder="Tech Corp"
+                    )
                 
                 with exp_col2:
-                    start_date = st.text_input(f"Start Date", key=f"start_date_{i}", placeholder="January 2021")
-                    end_date = st.text_input(f"End Date", key=f"end_date_{i}", placeholder="Present")
+                    start_date = st.text_input(
+                        f"Start Date",
+                        key=f"start_date_{i}",
+                        placeholder="January 2021",
+                        help="Month Year format"
+                    )
+                    end_date = st.text_input(
+                        f"End Date",
+                        key=f"end_date_{i}",
+                        placeholder="Present",
+                        help="Use 'Present' if current position"
+                    )
                 
                 st.markdown("**Key Achievements (one per line):**")
                 achievements = st.text_area(
-                    "Enter your achievements/responsibilities",
+                    "Enter achievements",
                     key=f"achievements_{i}",
-                    placeholder="• Developed REST APIs using FastAPI\n• Reduced costs by 30%\n• Mentored 3 developers",
-                    height=150
+                    placeholder="• Led development of REST APIs\n• Reduced costs by 30%\n• Mentored 3 junior developers",
+                    height=150,
+                    help="Use bullet points, start with action verbs, quantify results"
                 )
                 
                 if job_title and company:
@@ -279,12 +309,29 @@ if "Manual Entry" in generation_mode:
                 edu_col1, edu_col2 = st.columns(2)
                 
                 with edu_col1:
-                    degree = st.text_input(f"Degree *", key=f"degree_{i}", placeholder="Bachelor of Science in Computer Science")
-                    institution = st.text_input(f"Institution *", key=f"institution_{i}", placeholder="University of Technology")
+                    degree = st.text_input(
+                        f"Degree *",
+                        key=f"degree_{i}",
+                        placeholder="Bachelor of Science in Computer Science"
+                    )
+                    institution = st.text_input(
+                        f"Institution *",
+                        key=f"institution_{i}",
+                        placeholder="University of Technology"
+                    )
                 
                 with edu_col2:
-                    year = st.text_input(f"Year/Duration", key=f"year_{i}", placeholder="2015 - 2019")
-                    gpa = st.text_input(f"GPA (optional)", key=f"gpa_{i}", placeholder="3.8/4.0")
+                    year = st.text_input(
+                        f"Year/Duration",
+                        key=f"year_{i}",
+                        placeholder="2015 - 2019"
+                    )
+                    gpa = st.text_input(
+                        f"GPA (optional)",
+                        key=f"gpa_{i}",
+                        placeholder="3.8/4.0",
+                        help="Include only if above 3.5"
+                    )
                 
                 if degree and institution:
                     education.append({
@@ -300,30 +347,39 @@ if "Manual Entry" in generation_mode:
         st.markdown("**Enter your skills (comma-separated):**")
         skills_input = st.text_area(
             "Skills",
-            placeholder="Python, JavaScript, React, FastAPI, Docker, Kubernetes, AWS",
-            height=100
+            placeholder="Python, JavaScript, React, Docker, Kubernetes, AWS",
+            height=100,
+            help="List 10-20 relevant skills, most important first"
         )
         
         skills = [skill.strip() for skill in skills_input.split(',') if skill.strip()]
     
-    # TAB 4: Projects & Certifications
+    # TAB 4: Projects
     with tab4:
         st.markdown("### 🎨 Projects")
         
-        num_projects = st.number_input("Number of projects", min_value=0, max_value=10, value=2, step=1)
+        num_projects = st.number_input("Number of projects", min_value=0, max_value=10, value=1, step=1)
         
         projects = []
         
         for i in range(int(num_projects)):
             with st.expander(f"Project #{i+1}", expanded=(i==0)):
-                project_name = st.text_input(f"Project Name", key=f"project_name_{i}", placeholder="E-Commerce Platform")
+                project_name = st.text_input(
+                    f"Project Name",
+                    key=f"project_name_{i}",
+                    placeholder="E-Commerce Platform"
+                )
                 project_desc = st.text_area(
                     f"Description",
                     key=f"project_desc_{i}",
-                    placeholder="Built a full-stack e-commerce platform...",
+                    placeholder="Built a full-stack e-commerce platform with 5000+ users...",
                     height=80
                 )
-                project_tech = st.text_input(f"Technologies Used", key=f"project_tech_{i}", placeholder="FastAPI, React, PostgreSQL")
+                project_tech = st.text_input(
+                    f"Technologies Used",
+                    key=f"project_tech_{i}",
+                    placeholder="React, Node.js, PostgreSQL"
+                )
                 
                 if project_name and project_desc:
                     projects.append({
@@ -333,29 +389,172 @@ if "Manual Entry" in generation_mode:
                     })
         
         st.markdown("---")
-        st.markdown("### 🏆 Certifications")
+        st.markdown("### 🏆 Certifications (Optional)")
         
         certifications_input = st.text_area(
             "Enter certifications (one per line)",
-            placeholder="AWS Certified Solutions Architect (2022)\nCertified Kubernetes Administrator (2023)",
+            placeholder="AWS Certified Solutions Architect (2023)\nCertified Kubernetes Administrator (2024)",
             height=120
         )
         
         certifications = [cert.strip() for cert in certifications_input.split('\n') if cert.strip()]
-
-# ============================================================================
-# MODE 2: AUTO-GENERATE FROM JOB DESCRIPTION (NEW)
+    
+    # GENERATE BUTTON FOR MANUAL MODE
+    st.markdown("---")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        generate_button = st.button("🎯 Generate CV", type="primary", use_container_width=True)
+    
+    if generate_button:
+        # COMPREHENSIVE VALIDATION
+        errors = []
+        warnings = []
+        
+        # Required fields
+        if not name:
+            errors.append("Full Name is required")
+        if not email:
+            errors.append("Email is required")
+        elif not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
+            errors.append("Email format is invalid (example: name@domain.com)")
+        if not phone:
+            errors.append("Phone number is required")
+        
+        # Content validation
+        if len(experiences) == 0:
+            warnings.append("No work experience added - CV will look incomplete")
+        
+        if len(education) == 0:
+            warnings.append("No education added - Most employers expect this")
+        
+        if len(skills) < 3:
+            warnings.append("Less than 3 skills listed - Add more to strengthen your CV")
+        
+        # Show errors (blocking)
+        if errors:
+            st.error("❌ **Please fix the following errors:**")
+            for error in errors:
+                st.markdown(f"- {error}")
+            st.stop()
+        
+        # Show warnings (non-blocking)
+        if warnings:
+            st.warning("⚠️ **Recommendations:**")
+            for warning in warnings:
+                st.markdown(f"- {warning}")
+            
+            if not st.checkbox("I understand and want to continue anyway"):
+                st.stop()
+        
+        # PROGRESS TRACKING
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        try:
+            status_text.info("📝 **Step 1/3:** Collecting your information...")
+            progress_bar.progress(33)
+            time.sleep(0.3)
+            
+            # Prepare data
+            personal_info = {
+                'name': name,
+                'email': email,
+                'phone': phone,
+                'location': location if location else None,
+                'linkedin': linkedin if linkedin else None,
+                'github': github if github else None,
+                'summary': summary if summary else None
+            }
+            
+            status_text.info("🎨 **Step 2/3:** Generating professional CV with ATS optimization...")
+            progress_bar.progress(66)
+            time.sleep(0.5)
+            
+            # Generate
+            generator = CVGenerator()
+            
+            doc = generator.generate_cv(
+                personal_info=personal_info,
+                experience=experiences if experiences else None,
+                education=education if education else None,
+                skills=skills if skills else None,
+                projects=projects if projects else None,
+                certifications=certifications if certifications else None
+            )
+            
+            status_text.info("✨ **Step 3/3:** Creating preview and download options...")
+            progress_bar.progress(90)
+            
+            # Save DOCX
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"CV_{name.replace(' ', '_')}_{timestamp}.docx"
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
+                doc.save(tmp_file.name)
+                tmp_docx_path = tmp_file.name
+            
+            with open(tmp_docx_path, 'rb') as file:
+                cv_bytes_docx = file.read()
+            
+            st.session_state.cv_bytes_docx = cv_bytes_docx
+            st.session_state.filename = filename
+            
+            # Generate HTML preview
+            try:
+                import mammoth
+                with open(tmp_docx_path, 'rb') as docx_file:
+                    result = mammoth.convert_to_html(docx_file)
+                    st.session_state.cv_html = result.value
+            except:
+                st.session_state.cv_html = None
+            
+            os.unlink(tmp_docx_path)
+            
+            progress_bar.progress(100)
+            status_text.success("✅ **CV generated successfully!**")
+            time.sleep(0.5)
+            
+            progress_bar.empty()
+            status_text.empty()
+            
+            st.success("✅ Your professional CV is ready!")
+            st.balloons()
+            
+        except Exception as e:
+            progress_bar.empty()
+            status_text.empty()
+            st.error(f"❌ **Failed to generate CV**")
+            st.warning(f"""
+            **Generation failed. Possible causes:**
+            - System resource issue
+            - Invalid character in input
+            - File system permission error
+            
+            **Please try:**
+            - Simplifying text (remove special characters)
+            - Reducing content length
+            - Restarting the application
+            
+            **Technical details:** {str(e)}
+            """)
+            with st.expander("🔧 Debug Information"):
+                st.code(f"Exception: {type(e).__name__}\nMessage: {str(e)}")
+                
+    # ============================================================================
+# MODE 2: AUTO-GENERATE FROM JOB DESCRIPTION
 # ============================================================================
 elif "Auto-Generate" in generation_mode:
     st.markdown("""
     <div class="highlight-box">
         <h3 style="color: #10b981 !important; margin: 0 0 0.5rem 0;">🎯 Smart CV Auto-Generation</h3>
         <p style="color: #cbd5e1 !important; margin: 0;">
-            Paste a job description and your existing CV. We'll automatically:
-            <br>• Extract required skills from the JD
-            <br>• Highlight YOUR matching skills prominently
-            <br>• Re-order sections to emphasize relevant experience
-            <br>• Generate ATS-optimized CV tailored to the role
+            Upload your CV and paste a job description. We'll automatically:
+            <br>• Extract and parse your CV data
+            <br>• Identify required skills from the JD
+            <br>• Match YOUR skills to JD requirements
+            <br>• Generate optimized CV highlighting matched skills
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -368,37 +567,37 @@ elif "Auto-Generate" in generation_mode:
         existing_cv_file = st.file_uploader(
             "Upload your current CV",
             type=['pdf', 'docx', 'txt'],
-            help="Upload your existing CV - we'll extract and optimize it",
-            key="auto_mode_cv_uploader"
+            help="We'll extract and optimize your information",
+            key="auto_cv"
         )
         
-        st.markdown("**OR paste your CV text:**")
+        st.markdown("**OR paste CV text:**")
         existing_cv_text = st.text_area(
             "Paste CV",
             height=300,
             placeholder="Paste your current CV here...",
-            key="existing_cv"
+            key="existing_cv_text"
         )
     
     with col2:
         st.markdown("### 💼 Target Job Description")
         
         target_jd_text = st.text_area(
-        "Paste the job description you're applying for",
-        height=460,
-        placeholder="""Paste full job description here...
+            "Paste the job description",
+            height=460,
+            placeholder="""Paste full job description...
 
-    Example:
-    Senior Software Engineer
+Example:
+Senior Backend Engineer
 
-    Required Skills:
-    - Python, FastAPI
-    - Docker, Kubernetes
-    - AWS cloud services
-    - 5+ years experience
+Required Skills:
+- Python, FastAPI
+- Docker, Kubernetes
+- AWS, PostgreSQL
+- 5+ years experience
 
-    We'll automatically highlight YOUR matching skills!""",
-    key="target_jd_input"  # ← CHANGED FROM "target_jd"
+We'll match YOUR skills automatically!""",
+            key="target_jd"
         )
     
     st.markdown("---")
@@ -406,9 +605,10 @@ elif "Auto-Generate" in generation_mode:
     col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
     
     with col_btn2:
-        auto_generate_button = st.button("🤖 Auto-Generate Optimized CV", type="primary", use_container_width=True)
+        auto_analyze_btn = st.button("🔍 Analyze & Generate", type="primary", use_container_width=True)
     
-    if auto_generate_button:
+    if auto_analyze_btn:
+        # Validation
         if not target_jd_text:
             st.error("❌ Please provide a target job description")
             st.stop()
@@ -417,494 +617,220 @@ elif "Auto-Generate" in generation_mode:
             st.error("❌ Please upload your CV or paste CV text")
             st.stop()
         
-        with st.spinner("🧠 Analyzing job description and your CV..."):
+        # Progress tracking
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        try:
+            # Step 1: Parse CV (20%)
+            status_text.info("📄 **Step 1/5:** Parsing your existing CV...")
+            progress_bar.progress(20)
+            
+            cv_parser = CVParser()
+            
+            if existing_cv_file:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{existing_cv_file.name.split('.')[-1]}") as tmp:
+                    tmp.write(existing_cv_file.read())
+                    cv_data = cv_parser.parse(tmp.name)
+                os.unlink(tmp.name)
+            else:
+                cv_data = {
+                    'text': existing_cv_text,
+                    'sections': cv_parser._segment_sections(existing_cv_text)
+                }
+            
+            st.success("✅ CV parsed successfully")
+            time.sleep(0.3)
+            
+            # Step 2: Parse JD (40%)
+            status_text.info("💼 **Step 2/5:** Analyzing job requirements...")
+            progress_bar.progress(40)
+            
+            jd_parser = JDParser()
+            jd_data = jd_parser.parse(target_jd_text)
+            
+            st.success(f"✅ Found {len(jd_data.get('required_skills', []))} required skills")
+            time.sleep(0.3)
+            
+            # Step 3: Match Skills (60%)
+            status_text.info("🎯 **Step 3/5:** Matching your skills to JD requirements...")
+            progress_bar.progress(60)
+            
+            embedding_engine = EmbeddingEngine()
+            scoring_engine = ScoringEngine(embedding_engine)
+            match_result = scoring_engine.compute_match_score(cv_data, jd_data)
+            
+            # Extract matched skills
+            required_skills_details = match_result['breakdown']['required_skills']['details']['skills']
+            matched_skills = [s['skill'] for s in required_skills_details if s['matched']]
+            missing_skills = [s['skill'] for s in required_skills_details if not s['matched']]
+            
+            st.success(f"✅ Match score: {match_result['overall_percentage']} | {len(matched_skills)} skills matched")
+            time.sleep(0.3)
+            
+            # Step 4: Extract CV Data (80%)
+            status_text.info("📊 **Step 4/5:** Extracting your information...")
+            progress_bar.progress(80)
+            
+            cv_sections = cv_data.get('sections', {})
+            header_text = cv_sections.get('header', '')
+            
+            # Extract contact info
+            email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', header_text)
+            extracted_email = email_match.group(0) if email_match else 'your.email@example.com'
+            
+            phone_match = re.search(r'[\+\(]?[0-9][0-9\s\-\(\)]{7,}[0-9]', header_text)
+            extracted_phone = phone_match.group(0) if phone_match else '+1-234-567-8900'
+            
+            lines = [l.strip() for l in header_text.split('\n') if l.strip()]
+            extracted_name = lines[0] if lines else 'Your Name'
+            
+            # Parse experience
+            experience_text = cv_sections.get('experience', '')
+            experience_list = []
+            if experience_text:
+                exp_sections = re.split(r'\n(?=[A-Z][a-z]+ (?:Engineer|Developer|Manager|Analyst))', experience_text)
+                for exp in exp_sections[:3]:
+                    lines = [l.strip() for l in exp.split('\n') if l.strip()]
+                    if len(lines) >= 2:
+                        experience_list.append({
+                            'title': lines[0],
+                            'company': lines[1] if len(lines) > 1 else 'Company',
+                            'duration': 'Present',
+                            'bullets': [l.lstrip('•-*').strip() for l in lines[2:] if l.strip()][:4]
+                        })
+            
+            # Parse education
+            education_text = cv_sections.get('education', '')
+            education_list = []
+            if education_text:
+                lines = [l.strip() for l in education_text.split('\n') if l.strip()]
+                if lines:
+                    education_list.append({
+                        'degree': lines[0],
+                        'institution': lines[1] if len(lines) > 1 else 'University',
+                        'year': lines[2] if len(lines) > 2 else 'Recent',
+                        'gpa': None
+                    })
+            
+            # Smart skill ordering (matched first)
+            all_jd_skills = jd_data.get('required_skills', []) + jd_data.get('preferred_skills', [])
+            ordered_skills = matched_skills + [s for s in all_jd_skills if s not in matched_skills]
+            
+            st.success("✅ Information extracted successfully")
+            time.sleep(0.3)
+            
+            # Step 5: Generate Optimized CV (95%)
+            status_text.info("✨ **Step 5/5:** Generating your optimized CV...")
+            progress_bar.progress(95)
+            
+            personal_info = {
+                'name': extracted_name,
+                'email': extracted_email,
+                'phone': extracted_phone,
+                'summary': f"Professional with {len(matched_skills)}/{len(all_jd_skills)} required skills. Expertise in {', '.join(matched_skills[:5])}."
+            }
+            
+            generator = CVGenerator()
+            doc = generator.generate_cv(
+                personal_info=personal_info,
+                experience=experience_list if experience_list else None,
+                education=education_list if education_list else None,
+                skills=ordered_skills[:20],
+                projects=None
+            )
+            
+            # Save
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"CV_Optimized_{timestamp}.docx"
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                doc.save(tmp.name)
+                with open(tmp.name, 'rb') as f:
+                    cv_bytes = f.read()
+            os.unlink(tmp.name)
+            
+            st.session_state.cv_bytes_docx = cv_bytes
+            st.session_state.filename = filename
+            
+            # Preview
             try:
-                # Parse existing CV
-                cv_parser = CVParser()
-                if existing_cv_file:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{existing_cv_file.name.split('.')[-1]}") as tmp:
-                        tmp.write(existing_cv_file.read())
-                        cv_data = cv_parser.parse(tmp.name)
-                    os.unlink(tmp.name)
-                else:
-                    cv_data = {'text': existing_cv_text, 'sections': cv_parser._segment_sections(existing_cv_text)}
-                
-                # Parse JD
-                jd_parser = JDParser()
-                jd_data = jd_parser.parse(target_jd_text)
-                
-                # Match CV to JD
-                embedding_engine = EmbeddingEngine()
-                scoring_engine = ScoringEngine(embedding_engine)
-                match_result = scoring_engine.compute_match_score(cv_data, jd_data)
-                
-                st.success(f"✅ Analysis complete! Match score: {match_result['overall_percentage']}")
-                
-                # Extract matched and missing skills
-                required_skills_details = match_result['breakdown']['required_skills']['details']['skills']
-                matched_skills = [s['skill'] for s in required_skills_details if s['matched']]
-                missing_skills_list = [s['skill'] for s in required_skills_details if not s['matched']]
-                
-                # Show what we found
-                st.markdown("### 🎯 Analysis Results")
-                
-                analysis_col1, analysis_col2 = st.columns(2)
-                
-                with analysis_col1:
-                    st.markdown(f"#### ✅ Your Matching Skills ({len(matched_skills)})")
-                    if matched_skills:
-                        for skill in matched_skills[:10]:
-                            st.markdown(f"• **{skill}** (will be highlighted)")
-                
-                with analysis_col2:
-                    st.markdown(f"#### ⚠️ Missing Skills ({len(missing_skills_list)})")
-                    if missing_skills_list:
-                        for skill in missing_skills_list[:10]:
-                            st.markdown(f"• {skill} (add if you have it)")
-                
-                st.info("💡 We'll generate a CV that prominently highlights your matching skills at the top!")
-                
-                # PROPERLY EXTRACT from parsed CV
-                cv_sections = cv_data.get('sections', {})
-                
-                # Extract personal info
-                header_text = cv_sections.get('header', '')
-                
-                # Extract email
-                email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', header_text)
-                extracted_email = email_match.group(0) if email_match else None
-                
-                # Extract phone
-                phone_match = re.search(r'[\+\(]?[0-9][0-9\s\-\(\)]{7,}[0-9]', header_text)
-                extracted_phone = phone_match.group(0) if phone_match else None
-                
-                # Extract name (first non-empty line)
-                lines = [l.strip() for l in header_text.split('\n') if l.strip()]
-                extracted_name = lines[0] if lines else None
-                
-                # Store extracted data
-                st.session_state.extracted_name = extracted_name
-                st.session_state.extracted_email = extracted_email
-                st.session_state.extracted_phone = extracted_phone
-                st.session_state.extracted_experience = cv_sections.get('experience', '')
-                st.session_state.extracted_education = cv_sections.get('education', '')
-                st.session_state.extracted_skills = cv_sections.get('skills', '')
-                st.session_state.extracted_projects = cv_sections.get('projects', '')
-                
-                # Store for generation
-                st.session_state.jd_skills = jd_data.get('required_skills', []) + jd_data.get('preferred_skills', [])
-                st.session_state.matched_skills = matched_skills
-                #st.session_state.target_jd = target_jd_text
-                st.session_state.parsed_cv = cv_data
-                st.session_state.jd_data = jd_data
-                
-                # Set flag to generate
-                st.session_state.ready_to_generate_auto = True
-                
-                st.success("✅ Extracted complete CV data successfully!")
-                
-            except Exception as e:
-                st.error(f"❌ Failed to analyze: {str(e)}")
-                st.exception(e)
-    
-    # If ready, show generate button
-    if st.session_state.get('ready_to_generate_auto', False):
-        st.markdown("---")
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            if st.button("✨ Generate Optimized CV Now", type="primary", use_container_width=True):
-                with st.spinner("📝 Generating your optimized CV..."):
-                    try:
-                        matched_skills = st.session_state.matched_skills
-                        
-                        # Create skills list with matched ones first
-                        all_skills = matched_skills + [s for s in st.session_state.jd_skills if s not in matched_skills]
-                        
-                        # Use EXTRACTED data from CV
-                        personal_info = {
-                            'name': st.session_state.get('extracted_name', 'Your Name'),
-                            'email': st.session_state.get('extracted_email', 'your.email@example.com'),
-                            'phone': st.session_state.get('extracted_phone', '+1-234-567-8900'),
-                            'summary': f"Professional with proven experience in {', '.join(matched_skills[:5])}. {len(matched_skills)}/{len(st.session_state.jd_skills)} required skills matched."
-                        }
-                        
-                        # Parse experience from text
-                        experience_text = st.session_state.get('extracted_experience', '')
-                        experience_list = []
-                        if experience_text:
-                            # Split by common patterns
-                            exp_sections = re.split(r'\n(?=[A-Z][a-z]+ (?:Engineer|Developer|Manager|Analyst))', experience_text)
-                            for exp in exp_sections[:3]:  # Top 3 experiences
-                                lines = [l.strip() for l in exp.split('\n') if l.strip()]
-                                if len(lines) >= 2:
-                                    experience_list.append({
-                                        'title': lines[0],
-                                        'company': lines[1] if len(lines) > 1 else 'Company',
-                                        'duration': 'Present',
-                                        'bullets': [l.lstrip('•-*').strip() for l in lines[2:] if l.strip()][:4]
-                                    })
-                        
-                        # Parse education
-                        education_text = st.session_state.get('extracted_education', '')
-                        education_list = []
-                        if education_text:
-                            lines = [l.strip() for l in education_text.split('\n') if l.strip()]
-                            if lines:
-                                education_list.append({
-                                    'degree': lines[0],
-                                    'institution': lines[1] if len(lines) > 1 else 'University',
-                                    'year': lines[2] if len(lines) > 2 else 'Recent',
-                                    'gpa': None
-                                })
-                        
-                        # Parse projects
-                        projects_text = st.session_state.get('extracted_projects', '')
-                        projects_list = []
-                        if projects_text:
-                            project_sections = re.split(r'\n(?=[A-Z])', projects_text)
-                            for proj in project_sections[:3]:
-                                lines = [l.strip() for l in proj.split('\n') if l.strip()]
-                                if lines:
-                                    projects_list.append({
-                                        'name': lines[0],
-                                        'description': lines[1] if len(lines) > 1 else '',
-                                        'technologies': ', '.join(matched_skills[:5])
-                                    })
-                        
-                        # Generate CV with ALL extracted data
-                        generator = CVGenerator()
-                        doc = generator.generate_cv(
-                            personal_info=personal_info,
-                            experience=experience_list if experience_list else None,
-                            education=education_list if education_list else None,
-                            skills=all_skills[:20],  # Matched skills first
-                            projects=projects_list if projects_list else None
-                        )
-                        
-                        # Save
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        filename = f"CV_Optimized_For_Role_{timestamp}.docx"
-                        
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                            doc.save(tmp.name)
-                            with open(tmp.name, 'rb') as f:
-                                cv_bytes = f.read()
-                        
-                        os.unlink(tmp.name)
-                        
-                        st.session_state.cv_bytes_docx = cv_bytes
-                        st.session_state.filename = filename
-                        
-                        # Generate preview
-                        try:
-                            import mammoth
-                            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                                tmp.write(cv_bytes)
-                                with open(tmp.name, 'rb') as f:
-                                    result = mammoth.convert_to_html(f)
-                                    st.session_state.cv_html = result.value
-                            os.unlink(tmp.name)
-                        except:
-                            st.session_state.cv_html = None
-                        
-                        st.success("✅ Optimized CV generated!")
-                        st.balloons()
-                        
-                    except Exception as e:
-                        st.error(f"❌ Generation failed: {str(e)}")
-                        st.exception(e)
+                import mammoth
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                    tmp.write(cv_bytes)
+                    with open(tmp.name, 'rb') as f:
+                        result = mammoth.convert_to_html(f)
+                        st.session_state.cv_html = result.value
+                os.unlink(tmp.name)
+            except:
+                st.session_state.cv_html = None
+            
+            progress_bar.progress(100)
+            status_text.success("✅ **Optimized CV generated!**")
+            time.sleep(0.5)
+            
+            progress_bar.empty()
+            status_text.empty()
+            
+            # Show analysis
+            st.markdown("### 🎯 Analysis Results")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown(f"#### ✅ Matched Skills ({len(matched_skills)})")
+                if matched_skills:
+                    for skill in matched_skills[:10]:
+                        st.markdown(f"• **{skill}** (highlighted in CV)")
+            
+            with col2:
+                st.markdown(f"#### ⚠️ Missing Skills ({len(missing_skills)})")
+                if missing_skills:
+                    for skill in missing_skills[:10]:
+                        st.markdown(f"• {skill}")
+            
+            st.success("✅ CV optimized with matched skills prioritized!")
+            st.balloons()
+            
+        except Exception as e:
+            progress_bar.empty()
+            status_text.empty()
+            st.error(f"❌ **Auto-generation failed**")
+            st.warning(f"""
+            **Could not generate optimized CV. Please try:**
+            - Using Manual Entry mode instead
+            - Ensuring CV contains extractable text
+            - Simplifying the job description
+            
+            **Technical details:** {str(e)}
+            """)
+            with st.expander("🔧 Debug Info"):
+                st.code(f"{type(e).__name__}: {str(e)}")
 
 # ============================================================================
-# MODE 3: EXTRACT FROM DOCUMENTS (NEW)
+# MODE 3: EXTRACT FROM DOCUMENTS
 # ============================================================================
 elif "Extract from Documents" in generation_mode:
     st.markdown("""
     <div class="highlight-box">
-        <h3 style="color: #10b981 !important; margin: 0 0 0.5rem 0;">📄 Smart Document-Based CV Generation</h3>
+        <h3 style="color: #10b981 !important; margin: 0 0 0.5rem 0;">📄 Document-Based CV Generation</h3>
         <p style="color: #cbd5e1 !important; margin: 0;">
-            Upload your documents and optionally paste a job description for smart optimization:
-            <br>• 📜 Certificates → Certifications section
-            <br>• 🎓 Transcripts/Marksheets → Education + GPA
-            <br>• 📄 Existing CV → All sections
-            <br>• 💼 Job Description → Smart skill highlighting (optional)
+            Upload certificates, transcripts, or existing CVs. We'll extract:
+            <br>• Education details and GPA
+            <br>• Certifications with dates
+            <br>• Skills from all documents
+            <br>• Work experience from CVs
         </p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Two columns: Documents + Optional JD
-    doc_col1, doc_col2 = st.columns([1, 1])
-    
-    with doc_col1:
-        st.markdown("### 📤 Upload Your Documents")
-        
-        uploaded_docs = st.file_uploader(
-            "Upload multiple documents (certificates, transcripts, existing CV, etc.)",
-            type=['pdf', 'png', 'jpg', 'jpeg', 'docx', 'txt'],
-            accept_multiple_files=True,
-            help="Upload any documents containing your information"
-        )
-    
-    with doc_col2:
-        st.markdown("### 💼 Target Job (Optional)")
-        
-        doc_mode_jd = st.text_area(
-            "Paste job description to optimize CV (optional)",
-            height=250,
-            placeholder="""Optional: Paste job description here...
-
-If provided, we'll:
-- Match your skills to JD requirements
-- Highlight relevant skills first
-- Generate optimized CV
-
-Leave empty for generic CV.""",
-            key="doc_mode_jd_input"
-        )
-    
-    if uploaded_docs:
-        st.success(f"✅ {len(uploaded_docs)} document(s) uploaded")
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            extract_button = st.button("🔍 Extract Information", type="primary", use_container_width=True)
-        
-        if extract_button:
-            with st.spinner("📄 Extracting information from documents..."):
-                try:
-                    extracted_data = {
-                        'education': [],
-                        'certifications': [],
-                        'skills': [],
-                        'experience': []
-                    }
-                    
-                    cv_parser = CVParser()
-                    
-                    for doc in uploaded_docs:
-                        # Save temporarily
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{doc.name.split('.')[-1]}") as tmp:
-                            tmp.write(doc.read())
-                            tmp_path = tmp.name
-                        
-                        # Parse based on file type
-                        if doc.name.lower().endswith(('.pdf', '.docx', '.txt')):
-                            doc_data = cv_parser.parse(tmp_path)
-                            
-                            # Extract education
-                            if 'education' in doc_data.get('sections', {}):
-                                extracted_data['education'].append(doc_data['sections']['education'])
-                            
-                            # Extract skills
-                            if 'skills' in doc_data.get('sections', {}):
-                                skills_text = doc_data['sections']['skills']
-                                skills = [s.strip() for s in skills_text.replace('\n', ',').split(',') if s.strip()]
-                                extracted_data['skills'].extend(skills)
-                            
-                            # Extract experience
-                            if 'experience' in doc_data.get('sections', {}):
-                                extracted_data['experience'].append(doc_data['sections']['experience'])
-                        
-                        # OCR for images (certificates/transcripts)
-                        elif doc.name.lower().endswith(('.png', '.jpg', '.jpeg')):
-                            try:
-                                from src.validation.eligibility_validator import EligibilityValidator
-                                validator = EligibilityValidator()
-                                text = validator._extract_text_from_image(tmp_path)
-                                
-                                # Look for degree/GPA
-                                if 'bachelor' in text.lower() or 'master' in text.lower() or 'gpa' in text.lower():
-                                    extracted_data['education'].append(text[:500])
-                                
-                                # Look for certifications
-                                if 'certified' in text.lower() or 'certificate' in text.lower():
-                                    extracted_data['certifications'].append(text[:200])
-                                
-                                # Extract skills from certificates
-                                skill_keywords = ['python', 'java', 'javascript', 'react', 'docker', 'kubernetes', 
-                                                'aws', 'azure', 'gcp', 'sql', 'mongodb', 'fastapi', 'django']
-                                for keyword in skill_keywords:
-                                    if keyword in text.lower():
-                                        extracted_data['skills'].append(keyword.title())
-                            except:
-                                pass
-                        
-                        os.unlink(tmp_path)
-                    
-                    # Show extracted info
-                    st.success("✅ Extraction complete!")
-                    
-                    st.markdown("### 📊 Extracted Information")
-                    
-                    info_col1, info_col2 = st.columns(2)
-                    
-                    with info_col1:
-                        if extracted_data['education']:
-                            st.markdown("#### 🎓 Education Found")
-                            for edu in extracted_data['education'][:3]:
-                                st.info(edu[:200] + ("..." if len(edu) > 200 else ""))
-                        
-                        if extracted_data['experience']:
-                            st.markdown("#### 💼 Experience Found")
-                            for exp in extracted_data['experience'][:2]:
-                                st.info(exp[:200] + ("..." if len(exp) > 200 else ""))
-                    
-                    with info_col2:
-                        if extracted_data['certifications']:
-                            st.markdown("#### 🏆 Certifications Found")
-                            for cert in extracted_data['certifications'][:5]:
-                                st.info(cert)
-                        
-                        if extracted_data['skills']:
-                            st.markdown("#### 🔧 Skills Found")
-                            unique_skills = list(set(extracted_data['skills']))[:20]
-                            st.write(", ".join(unique_skills))
-                    
-                    # SMART MATCHING if JD provided
-                    matched_skills = []
-                    if doc_mode_jd:
-                        st.markdown("---")
-                        st.markdown("### 🎯 Smart Matching with Job Description")
-                        
-                        with st.spinner("🧠 Analyzing job requirements..."):
-                            try:
-                                # Parse JD
-                                jd_parser = JDParser()
-                                jd_data = jd_parser.parse(doc_mode_jd)
-                                
-                                # Match skills
-                                jd_skills = jd_data.get('required_skills', []) + jd_data.get('preferred_skills', [])
-                                extracted_skills_lower = [s.lower() for s in extracted_data['skills']]
-                                
-                                for jd_skill in jd_skills:
-                                    if jd_skill.lower() in extracted_skills_lower:
-                                        matched_skills.append(jd_skill)
-                                
-                                match_col1, match_col2 = st.columns(2)
-                                
-                                with match_col1:
-                                    st.markdown(f"#### ✅ Matched Skills ({len(matched_skills)})")
-                                    if matched_skills:
-                                        for skill in matched_skills[:10]:
-                                            st.markdown(f"• **{skill}** (will be highlighted)")
-                                    else:
-                                        st.warning("No direct skill matches found")
-                                
-                                with match_col2:
-                                    missing = [s for s in jd_skills if s.lower() not in extracted_skills_lower]
-                                    st.markdown(f"#### ⚠️ Missing Skills ({len(missing)})")
-                                    if missing:
-                                        for skill in missing[:10]:
-                                            st.markdown(f"• {skill}")
-                                
-                                st.info(f"💡 Your CV will highlight {len(matched_skills)} matched skills prominently!")
-                                
-                                # Store for generation
-                                st.session_state.doc_jd_skills = jd_skills
-                                st.session_state.doc_matched_skills = matched_skills
-                                
-                            except Exception as e:
-                                st.warning(f"⚠️ Could not analyze JD: {str(e)}")
-                    
-                    st.info("💡 Review the extracted information above. Ready to generate your CV!")
-                    
-                    # Store extracted data
-                    st.session_state.extracted_data = extracted_data
-                    st.session_state.ready_to_generate_from_docs = True
-                    
-                except Exception as e:
-                    st.error(f"❌ Extraction failed: {str(e)}")
-                    st.exception(e)
-    
-    # If extracted, show generate button
-    if st.session_state.get('ready_to_generate_from_docs', False):
-        st.markdown("---")
-        
-        # Allow minor edits
-        st.markdown("### ✏️ Quick Edits (Optional)")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            doc_name = st.text_input("Your Name", placeholder="John Doe", key="doc_name_input")
-            doc_email = st.text_input("Email", placeholder="john@email.com", key="doc_email_input")
-        with col2:
-            doc_phone = st.text_input("Phone", placeholder="+1-234-567-8900", key="doc_phone_input")
-        
-        st.markdown("---")
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            gen_label = "✨ Generate Optimized CV" if st.session_state.get('doc_matched_skills') else "📝 Generate CV from Extracted Data"
-            
-            if st.button(gen_label, type="primary", use_container_width=True, key="doc_gen_btn"):
-                with st.spinner("📝 Generating your CV..."):
-                    try:
-                        extracted = st.session_state.extracted_data
-                        
-                        personal_info = {
-                            'name': doc_name if doc_name else 'Your Name',
-                            'email': doc_email if doc_email else 'email@example.com',
-                            'phone': doc_phone if doc_phone else '+1-234-567-8900'
-                        }
-                        
-                        # Smart skill ordering if JD matched
-                        if st.session_state.get('doc_matched_skills'):
-                            matched = st.session_state.doc_matched_skills
-                            all_skills = extracted.get('skills', [])
-                            # Matched skills first, then others
-                            ordered_skills = matched + [s for s in all_skills if s not in matched]
-                            skills_to_use = ordered_skills[:20]
-                            
-                            personal_info['summary'] = f"Professional with {len(matched)}/{len(st.session_state.doc_jd_skills)} required skills. Expertise in {', '.join(matched[:5])}."
-                        else:
-                            skills_to_use = extracted.get('skills', [])[:20]
-                        
-                        generator = CVGenerator()
-                        doc = generator.generate_cv(
-                            personal_info=personal_info,
-                            skills=skills_to_use,
-                            certifications=extracted.get('certifications', [])[:10]
-                        )
-                        
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        filename = f"CV_From_Documents_{timestamp}.docx"
-                        
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                            doc.save(tmp.name)
-                            with open(tmp.name, 'rb') as f:
-                                cv_bytes = f.read()
-                        
-                        os.unlink(tmp.name)
-                        
-                        st.session_state.cv_bytes_docx = cv_bytes
-                        st.session_state.filename = filename
-                        
-                        # Generate preview
-                        try:
-                            import mammoth
-                            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                                tmp.write(cv_bytes)
-                                with open(tmp.name, 'rb') as f:
-                                    result = mammoth.convert_to_html(f)
-                                    st.session_state.cv_html = result.value
-                            os.unlink(tmp.name)
-                        except:
-                            st.session_state.cv_html = None
-                        
-                        st.success("✅ CV generated from your documents!")
-                        st.balloons()
-                        
-                    except Exception as e:
-                        st.error(f"❌ Generation failed: {str(e)}")
-                        st.exception(e)
-    
     st.markdown("### 📤 Upload Your Documents")
     
     uploaded_docs = st.file_uploader(
-        "Upload multiple documents (certificates, transcripts, existing CV, etc.)",
+        "Upload documents (PDF, DOCX, images)",
         type=['pdf', 'png', 'jpg', 'jpeg', 'docx', 'txt'],
         accept_multiple_files=True,
-        help="Upload any documents containing your information",
-        key = "doc_extract_mode_uploader"
+        help="Upload any documents containing your information"
     )
     
     if uploaded_docs:
@@ -915,106 +841,124 @@ Leave empty for generic CV.""",
             extract_button = st.button("🔍 Extract Information", type="primary", use_container_width=True)
         
         if extract_button:
-            with st.spinner("📄 Extracting information from documents..."):
-                try:
-                    extracted_data = {
-                        'education': [],
-                        'certifications': [],
-                        'skills': [],
-                        'experience': []
-                    }
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            try:
+                status_text.info(f"📄 **Extracting from {len(uploaded_docs)} documents...**")
+                progress_bar.progress(20)
+                
+                extracted_data = {
+                    'education': [],
+                    'certifications': [],
+                    'skills': [],
+                    'experience': []
+                }
+                
+                cv_parser = CVParser()
+                
+                for idx, doc in enumerate(uploaded_docs):
+                    progress_bar.progress(20 + (idx + 1) * (60 // len(uploaded_docs)))
                     
-                    cv_parser = CVParser()
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{doc.name.split('.')[-1]}") as tmp:
+                        tmp.write(doc.read())
+                        tmp_path = tmp.name
                     
-                    for doc in uploaded_docs:
-                        # Save temporarily
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{doc.name.split('.')[-1]}") as tmp:
-                            tmp.write(doc.read())
-                            tmp_path = tmp.name
+                    # Parse based on type
+                    if doc.name.lower().endswith(('.pdf', '.docx', '.txt')):
+                        doc_data = cv_parser.parse(tmp_path)
                         
-                        # Parse based on file type
-                        if doc.name.lower().endswith(('.pdf', '.docx', '.txt')):
-                            doc_data = cv_parser.parse(tmp_path)
+                        if 'education' in doc_data.get('sections', {}):
+                            extracted_data['education'].append(doc_data['sections']['education'])
+                        
+                        if 'skills' in doc_data.get('sections', {}):
+                            skills_text = doc_data['sections']['skills']
+                            skills = [s.strip() for s in skills_text.replace('\n', ',').split(',') if s.strip()]
+                            extracted_data['skills'].extend(skills)
+                        
+                        if 'experience' in doc_data.get('sections', {}):
+                            extracted_data['experience'].append(doc_data['sections']['experience'])
+                    
+                    elif doc.name.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        try:
+                            from src.validation.eligibility_validator import EligibilityValidator
+                            validator = EligibilityValidator()
+                            text = validator._extract_text_from_image(tmp_path)
                             
-                            # Extract education
-                            if 'education' in doc_data.get('sections', {}):
-                                extracted_data['education'].append(doc_data['sections']['education'])
+                            if 'bachelor' in text.lower() or 'gpa' in text.lower():
+                                extracted_data['education'].append(text[:500])
                             
-                            # Extract skills
-                            if 'skills' in doc_data.get('sections', {}):
-                                skills_text = doc_data['sections']['skills']
-                                skills = [s.strip() for s in skills_text.replace('\n', ',').split(',') if s.strip()]
-                                extracted_data['skills'].extend(skills)
-                        
-                        # OCR for images (certificates/transcripts)
-                        elif doc.name.lower().endswith(('.png', '.jpg', '.jpeg')):
-                            try:
-                                from src.validation.eligibility_validator import EligibilityValidator
-                                validator = EligibilityValidator()
-                                text = validator._extract_text_from_image(tmp_path)
-                                
-                                # Look for degree/GPA
-                                if 'bachelor' in text.lower() or 'master' in text.lower() or 'gpa' in text.lower():
-                                    extracted_data['education'].append(text[:500])
-                                
-                                # Look for certifications
-                                if 'certified' in text.lower() or 'certificate' in text.lower():
-                                    extracted_data['certifications'].append(text[:200])
-                            except:
-                                pass
-                        
-                        os.unlink(tmp_path)
+                            if 'certified' in text.lower():
+                                extracted_data['certifications'].append(text[:200])
+                        except:
+                            pass
                     
-                    # Show extracted info
-                    st.success("✅ Extraction complete!")
-                    
-                    st.markdown("### 📊 Extracted Information")
-                    
+                    os.unlink(tmp_path)
+                
+                status_text.success("✅ **Extraction complete!**")
+                progress_bar.progress(100)
+                time.sleep(0.5)
+                
+                progress_bar.empty()
+                status_text.empty()
+                
+                # Show results
+                st.markdown("### 📊 Extracted Information")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
                     if extracted_data['education']:
-                        st.markdown("#### 🎓 Education Found")
+                        st.markdown("#### 🎓 Education")
                         for edu in extracted_data['education'][:3]:
-                            st.info(edu[:200] + "...")
-                    
-                    if extracted_data['certifications']:
-                        st.markdown("#### 🏆 Certifications Found")
-                        for cert in extracted_data['certifications'][:5]:
-                            st.info(cert)
+                            st.info(edu[:200] + ("..." if len(edu) > 200 else ""))
                     
                     if extracted_data['skills']:
                         st.markdown("#### 🔧 Skills Found")
                         unique_skills = list(set(extracted_data['skills']))[:20]
                         st.write(", ".join(unique_skills))
+                
+                with col2:
+                    if extracted_data['certifications']:
+                        st.markdown("#### 🏆 Certifications")
+                        for cert in extracted_data['certifications'][:5]:
+                            st.info(cert)
                     
-                    st.info("💡 Review the extracted information above. You can now generate a CV or manually edit before generating.")
-                    
-                    # Store extracted data
-                    st.session_state.extracted_data = extracted_data
-                    st.session_state.ready_to_generate_from_docs = True
-                    
-                except Exception as e:
-                    st.error(f"❌ Extraction failed: {str(e)}")
-                    st.exception(e)
+                    if extracted_data['experience']:
+                        st.markdown("#### 💼 Experience")
+                        for exp in extracted_data['experience'][:2]:
+                            st.info(exp[:200] + ("..." if len(exp) > 200 else ""))
+                
+                # Store data
+                st.session_state.extracted_data = extracted_data
+                st.session_state.ready_to_generate_from_docs = True
+                
+                st.success("✅ Ready to generate CV from extracted data!")
+                
+            except Exception as e:
+                progress_bar.empty()
+                status_text.empty()
+                st.error(f"❌ **Extraction failed**")
+                st.warning(f"Error: {str(e)}")
     
-    # If extracted, show generate button
+    # Generate button if data extracted
     if st.session_state.get('ready_to_generate_from_docs', False):
         st.markdown("---")
-        
-        # Allow minor edits
         st.markdown("### ✏️ Quick Edits (Optional)")
         
         col1, col2 = st.columns(2)
         with col1:
-            doc_name = st.text_input("Your Name", placeholder="John Doe")
-            doc_email = st.text_input("Email", placeholder="john@email.com")
+            doc_name = st.text_input("Name", placeholder="John Doe", key="doc_name")
+            doc_email = st.text_input("Email", placeholder="john@email.com", key="doc_email")
         with col2:
-            doc_phone = st.text_input("Phone", placeholder="+1-234-567-8900")
+            doc_phone = st.text_input("Phone", placeholder="+1-234-567-8900", key="doc_phone")
         
         st.markdown("---")
         
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("📝 Generate CV from Extracted Data", type="primary", use_container_width=True):
-                with st.spinner("📝 Generating your CV..."):
+            if st.button("📝 Generate CV", type="primary", use_container_width=True):
+                with st.spinner("📝 Generating CV..."):
                     try:
                         extracted = st.session_state.extracted_data
                         
@@ -1038,13 +982,12 @@ Leave empty for generic CV.""",
                             doc.save(tmp.name)
                             with open(tmp.name, 'rb') as f:
                                 cv_bytes = f.read()
-                        
                         os.unlink(tmp.name)
                         
                         st.session_state.cv_bytes_docx = cv_bytes
                         st.session_state.filename = filename
                         
-                        # Generate preview
+                        # Preview
                         try:
                             import mammoth
                             with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
@@ -1056,89 +999,11 @@ Leave empty for generic CV.""",
                         except:
                             st.session_state.cv_html = None
                         
-                        st.success("✅ CV generated from your documents!")
+                        st.success("✅ CV generated!")
                         st.balloons()
                         
                     except Exception as e:
                         st.error(f"❌ Generation failed: {str(e)}")
-                        st.exception(e)
-
-# ============================================================================
-# GENERATE CV BUTTON (FOR MANUAL MODE)
-# ============================================================================
-if "Manual Entry" in generation_mode:
-    st.markdown("---")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        generate_button = st.button("🎯 Generate CV", type="primary", use_container_width=True)
-    
-    if generate_button:
-        # Validate
-        if not name or not email or not phone:
-            st.error("❌ Please fill in all required fields (Name, Email, Phone)")
-            st.stop()
-        
-        if not experiences and not education:
-            st.error("❌ Please add at least one work experience or education entry")
-            st.stop()
-        
-        # Prepare data
-        personal_info = {
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'location': location if location else None,
-            'linkedin': linkedin if linkedin else None,
-            'github': github if github else None,
-            'summary': summary if summary else None
-        }
-        
-        # Generate
-        with st.spinner("📝 Generating your ATS-optimized CV..."):
-            try:
-                generator = CVGenerator()
-                
-                doc = generator.generate_cv(
-                    personal_info=personal_info,
-                    experience=experiences if experiences else None,
-                    education=education if education else None,
-                    skills=skills if skills else None,
-                    projects=projects if projects else None,
-                    certifications=certifications if certifications else None
-                )
-                
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"CV_{name.replace(' ', '_')}_{timestamp}.docx"
-                
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
-                    doc.save(tmp_file.name)
-                    tmp_docx_path = tmp_file.name
-                
-                with open(tmp_docx_path, 'rb') as file:
-                    cv_bytes_docx = file.read()
-                
-                st.session_state.generated_doc = doc
-                st.session_state.cv_bytes_docx = cv_bytes_docx
-                st.session_state.filename = filename
-                
-                # Generate HTML preview
-                try:
-                    import mammoth
-                    with open(tmp_docx_path, 'rb') as docx_file:
-                        result = mammoth.convert_to_html(docx_file)
-                        st.session_state.cv_html = result.value
-                except:
-                    st.session_state.cv_html = None
-                
-                os.unlink(tmp_docx_path)
-                
-                st.success("✅ CV generated successfully!")
-                
-            except Exception as e:
-                st.error(f"❌ Failed to generate CV: {str(e)}")
-                st.exception(e)
 
 # ============================================================================
 # DISPLAY RESULTS (ALL MODES)
@@ -1147,17 +1012,17 @@ if st.session_state.cv_bytes_docx:
     st.markdown("---")
     st.markdown("## 📊 Your Generated CV")
     
-    # Summary
+    # Summary metrics
     summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
     
     with summary_col1:
-        st.metric("Generation Mode", "✅ Complete")
+        st.metric("Status", "✅ Complete")
     with summary_col2:
         st.metric("Format", "DOCX")
     with summary_col3:
         st.metric("ATS-Optimized", "Yes")
     with summary_col4:
-        st.metric("File Size", f"{len(st.session_state.cv_bytes_docx) // 1024} KB")
+        st.metric("Size", f"{len(st.session_state.cv_bytes_docx) // 1024} KB")
     
     st.markdown("---")
     
@@ -1174,186 +1039,51 @@ if st.session_state.cv_bytes_docx:
             </div>
             """, unsafe_allow_html=True)
         else:
-            st.info("💡 Preview not available. Download the CV to view it in Word or Google Docs.")
+            st.info("💡 Preview unavailable. Download to view in Word/Google Docs.")
     
     with download_col:
-        st.markdown("### 📥 Download Options")
-    
-    # DOCX Download
-    st.download_button(
-        label="📄 Download DOCX",
-        data=st.session_state.cv_bytes_docx,
-        file_name=st.session_state.filename,
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        use_container_width=True
-    )
-    
-    st.markdown("---")
-    
-    # PDF Generation
-    st.markdown("**Convert to PDF:**")
-    
-    pdf_button = st.button("🔄 Generate PDF", use_container_width=True, key="pdf_gen_btn")
-    
-    if pdf_button:
-        with st.spinner("📕 Converting to PDF..."):
-            try:
-                # Try using docx2pdf (Windows only)
-                try:
-                    from docx2pdf import convert
-                    
-                    # Save DOCX temporarily
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_docx:
-                        tmp_docx.write(st.session_state.cv_bytes_docx)
-                        tmp_docx_path = tmp_docx.name
-                    
-                    # Convert to PDF
-                    pdf_path = tmp_docx_path.replace('.docx', '.pdf')
-                    convert(tmp_docx_path, pdf_path)
-                    
-                    # Read PDF
-                    with open(pdf_path, 'rb') as pdf_file:
-                        pdf_bytes = pdf_file.read()
-                    
-                    # Clean up
-                    os.unlink(tmp_docx_path)
-                    os.unlink(pdf_path)
-                    
-                    # Store PDF
-                    st.session_state.cv_bytes_pdf = pdf_bytes
-                    st.session_state.pdf_filename = st.session_state.filename.replace('.docx', '.pdf')
-                    
-                    st.success("✅ PDF generated successfully!")
-                    st.rerun()
-                    
-                except ImportError:
-                    # Fallback: Use LibreOffice if available
-                    import subprocess
-                    
-                    # Save DOCX temporarily
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx', dir=tempfile.gettempdir()) as tmp_docx:
-                        tmp_docx.write(st.session_state.cv_bytes_docx)
-                        tmp_docx_path = tmp_docx.name
-                    
-                    # Try LibreOffice conversion
-                    temp_dir = tempfile.gettempdir()
-                    result = subprocess.run([
-                        'soffice', '--headless', '--convert-to', 'pdf',
-                        '--outdir', temp_dir, tmp_docx_path
-                    ], capture_output=True)
-                    
-                    pdf_path = tmp_docx_path.replace('.docx', '.pdf')
-                    
-                    if os.path.exists(pdf_path):
-                        with open(pdf_path, 'rb') as pdf_file:
-                            pdf_bytes = pdf_file.read()
-                        
-                        # Store PDF
-                        st.session_state.cv_bytes_pdf = pdf_bytes
-                        st.session_state.pdf_filename = st.session_state.filename.replace('.docx', '.pdf')
-                        
-                        # Clean up
-                        os.unlink(tmp_docx_path)
-                        os.unlink(pdf_path)
-                        
-                        st.success("✅ PDF generated successfully!")
-                        st.rerun()
-                    else:
-                        raise Exception("LibreOffice conversion failed")
-                        
-            except Exception as e:
-                st.warning(f"""
-                ⚠️ PDF conversion not available on this system.
-                
-                **Alternative options:**
-                1. Download DOCX and open in Microsoft Word → Save As PDF
-                2. Upload DOCX to Google Docs → Download as PDF
-                3. Use online converter: https://www.ilovepdf.com/word_to_pdf
-                
-                Error details: {str(e)}
-                """)
-    
-    # Show PDF download if available
-    if 'cv_bytes_pdf' in st.session_state and st.session_state.cv_bytes_pdf:
+        st.markdown("### 📥 Download")
+        
+        # DOCX Download
         st.download_button(
-            label="📕 Download PDF",
-            data=st.session_state.cv_bytes_pdf,
-            file_name=st.session_state.pdf_filename,
-            mime="application/pdf",
+            label="📄 Download DOCX",
+            data=st.session_state.cv_bytes_docx,
+            file_name=st.session_state.filename,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True
         )
-    
-    st.markdown("---")
-    
-    st.info(f"💾 **{st.session_state.filename}**")
-    
-    # Quick actions
-    st.markdown("### 🎯 Quick Actions")
-    
-    if st.button("🔄 Generate Another CV", use_container_width=True):
-        # Clear session state
-        for key in ['cv_bytes_docx', 'cv_bytes_pdf', 'cv_html', 'filename', 'pdf_filename', 
-                    'ready_to_generate_auto', 'ready_to_generate_from_docs']:
-            if key in st.session_state:
-                del st.session_state[key]
-        st.rerun()
-    
-    if st.button("📊 Test with CV Matcher", use_container_width=True):
-        st.switch_page("pages/1_📊_CV_Matcher.py")
         
         st.markdown("---")
         
-        st.info(f"💾 **{st.session_state.filename}**")
+        # PDF Info
+        st.markdown("**Convert to PDF:**")
+        st.info("""
+        📕 **PDF Generation:**
         
-        # Quick actions
-        st.markdown("### 🎯 Quick Actions")
+        1. Download DOCX above
+        2. Open in Word → Save As → PDF
+        3. Or upload to Google Docs → Download as PDF
         
-        if st.button("🔄 Generate Another CV", use_container_width=True):
-            # Clear session state
-            for key in ['cv_bytes_docx', 'cv_html', 'filename', 'ready_to_generate_auto', 'ready_to_generate_from_docs']:
+        *(Automatic PDF requires MS Word)*
+        """)
+        
+        st.markdown("---")
+        
+        # Quick Actions
+        st.markdown("### 🎯 Actions")
+        
+        if st.button("🔄 New CV", use_container_width=True):
+            for key in ['cv_bytes_docx', 'cv_html', 'filename', 'ready_to_generate_from_docs', 'extracted_data']:
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
         
-        if st.button("📊 Test with CV Matcher", use_container_width=True):
+        if st.button("📊 Test Match", use_container_width=True):
             st.switch_page("pages/1_📊_CV_Matcher.py")
 
 # Help section
-with st.expander("ℹ️ CV Generation Tips & Best Practices"):
+with st.expander("ℹ️ Tips & Best Practices"):
     st.markdown("""
-    ### 🎯 Auto-Generation from JD (NEW!)
-    
-    **How it works:**
-    1. Upload your existing CV
-    2. Paste target job description
-    3. AI analyzes and matches skills
-    4. Generated CV highlights YOUR matching skills first
-    5. Employers can easily spot what they're looking for!
-    
-    **Benefits:**
-    - ✅ Saves time (no manual editing)
-    - ✅ Highlights relevant skills prominently
-    - ✅ Better ATS matching
-    - ✅ Customized for each job application
-    
-    ---
-    
-    ### 📄 Document Upload (NEW!)
-    
-    **Supported documents:**
-    - 📜 Certificates (PDF, images)
-    - 🎓 Transcripts/Marksheets (PDF, images)
-    - 📄 Existing CVs (DOCX, PDF, TXT)
-    - 🏆 Award letters
-    
-    **What we extract:**
-    - Education details + GPA
-    - Certifications with dates
-    - Skills from all documents
-    - Work experience from existing CVs
-    
-    ---
-    
     ### 📝 Manual Entry Tips
     
     **Work Experience:**
@@ -1371,4 +1101,34 @@ with st.expander("ℹ️ CV Generation Tips & Best Practices"):
     - ✅ Simple formatting
     - ✅ No tables/images
     - ✅ Standard section headers
+    
+    ---
+    
+    ### 🎯 Auto-Generation Tips
+    
+    **Best Results:**
+    - Upload complete, up-to-date CV
+    - Include full job description
+    - Ensure skills are clearly listed
+    
+    **What Gets Highlighted:**
+    - Matched skills shown first
+    - Relevant experience prioritized
+    - Education formatted for ATS
+    
+    ---
+    
+    ### 📄 Document Upload Tips
+    
+    **Supported Documents:**
+    - PDF/DOCX existing CVs
+    - Image scans of certificates
+    - Transcripts with GPA
+    - Multiple documents combine
+    
+    **OCR Works Best With:**
+    - Clear, high-resolution scans
+    - Well-lit photos
+    - Typed text (not handwritten)
     """)
+    
