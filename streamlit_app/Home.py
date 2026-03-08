@@ -1,5 +1,5 @@
 """
-CareerLens AI - Premium Dark Theme Home Page
+CareerLens AI - Premium Dark Theme Home Page with Enhanced UX
 """
 import streamlit as st
 import sys
@@ -13,7 +13,7 @@ sys.path.insert(0, str(project_root))
 utils_path = Path(__file__).parent / "utils"
 sys.path.insert(0, str(utils_path))
 
-# Import session manager
+# Import session manager with error handling
 try:
     from session_manager import SessionManager
     
@@ -354,7 +354,7 @@ if 'jd_data' not in st.session_state:
 if 'match_result' not in st.session_state:
     st.session_state.match_result = None
 
-# Premium Dark Sidebar (Fixed)
+# Premium Dark Sidebar
 with st.sidebar:
     # Logo section
     st.markdown("""
@@ -392,7 +392,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Metrics (using native Streamlit with dynamic data)
+    # Live Metrics
     st.markdown("### ⚡ Live Metrics")
     
     col1, col2 = st.columns(2)
@@ -408,7 +408,7 @@ with st.sidebar:
     st.markdown("""
     <div style="text-align: center; padding: 1rem 0; color: #94a3b8; font-size: 0.75rem;">
         <p style="margin: 0; color: #94a3b8;">Version 1.0.0</p>
-        <p style="margin: 0.5rem 0 0 0; color: #94a3b8;">© 2024 CareerLens</p>
+        <p style="margin: 0.5rem 0 0 0; color: #94a3b8;">© 2026 CareerLens</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -455,12 +455,12 @@ with feat1:
         <span class="feature-icon">📝</span>
         <div class="feature-title">Professional CV Generation</div>
         <div class="feature-desc">
-            Create ATS-optimized CVs with AI-enhanced bullet points. Export in DOCX format with 
-            professional formatting that passes applicant tracking systems.
+            Create ATS-optimized CVs with AI-enhanced formatting. Export in DOCX/PDF with 
+            professional layouts that pass applicant tracking systems.
         </div>
         <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-            <strong style="color: #60a5fa;">📊 5,132+ Generated</strong> • 
-            <span style="color: #94a3b8;">DOCX Export</span>
+            <strong style="color: #60a5fa;">📊 Multiple Modes</strong> • 
+            <span style="color: #94a3b8;">DOCX/PDF Export</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -484,20 +484,23 @@ with feat2:
     st.markdown("""
     <div class="feature-card">
         <span class="feature-icon">📈</span>
-        <div class="feature-title">Learning Pathways</div>
+        <div class="feature-title">Analytics & Insights</div>
         <div class="feature-desc">
-            Personalized 7/14/30-day learning roadmaps with curated resources. Track progress 
-            with milestone achievements and skill gap analysis.
+            Track your progress with visual dashboards. Identify skill gaps, monitor match scores, 
+            and get personalized improvement recommendations.
         </div>
         <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-            <strong style="color: #60a5fa;">🚀 +15-25% Improvement</strong> • 
-            <span style="color: #94a3b8;">Custom Roadmaps</span>
+            <strong style="color: #60a5fa;">📊 Visual Dashboards</strong> • 
+            <span style="color: #94a3b8;">Progress Tracking</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-# Platform Statistics - DYNAMIC DATA
-st.markdown('<div class="section-header">📊 Platform Performance</div>', unsafe_allow_html=True)
+# Platform Statistics - DYNAMIC DATA from Session Manager
+st.markdown('<div class="section-header">📊 Your Session Statistics</div>', unsafe_allow_html=True)
+
+if not session_enabled:
+    st.info("💡 **Session tracking is active!** Stats update as you use the platform. Current session data shown below.")
 
 stat1, stat2, stat3, stat4 = st.columns(4)
 
@@ -544,7 +547,7 @@ with start1:
         <h3 style="margin-bottom: 1rem; color: #60a5fa;">1️⃣ Analyze</h3>
         <p style="color: #cbd5e1; line-height: 1.7;">
             Upload your CV and paste the job description to receive instant AI-powered analysis 
-            with detailed match scoring.
+            with detailed match scoring and skill gap identification.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -557,8 +560,8 @@ with start2:
     <div class="glass-card">
         <h3 style="margin-bottom: 1rem; color: #a78bfa;">2️⃣ Optimize</h3>
         <p style="color: #cbd5e1; line-height: 1.7;">
-            Generate or improve your CV with AI-enhanced bullet points and ATS-optimized 
-            formatting for maximum impact.
+            Generate or improve your CV with AI-enhanced formatting and ATS-optimized 
+            structure for maximum impact. Multiple generation modes available.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -572,7 +575,7 @@ with start3:
         <h3 style="margin-bottom: 1rem; color: #ec4899;">3️⃣ Practice</h3>
         <p style="color: #cbd5e1; line-height: 1.7;">
             Master interview techniques with STAR method templates and AI-powered feedback 
-            on your responses.
+            on your responses. Build confidence before the real interview.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -586,7 +589,7 @@ st.markdown('<div class="section-header">⚙️ Technology Stack</div>', unsafe_
 tech1, tech2, tech3, tech4 = st.columns(4)
 
 tech_items = [
-    ("🐍 Python 3.11", "Core Language"),
+    ("🐍 Python 3.10+", "Core Language"),
     ("🤖 Transformers", "AI Models"),
     ("⚡ FastAPI", "Backend API"),
     ("🎨 Streamlit", "Frontend UI")
@@ -597,10 +600,56 @@ for col, (tech, desc) in zip([tech1, tech2, tech3, tech4], tech_items):
         col.markdown(f"""
         <div class="glass-card" style="text-align: center; padding: 1.5rem;">
             <div style="font-size: 2rem; margin-bottom: 0.5rem;">{tech.split()[0]}</div>
-            <div style="font-weight: 600; margin-bottom: 0.25rem;">{tech.split()[1]}</div>
+            <div style="font-weight: 600; margin-bottom: 0.25rem; color: #60a5fa !important;">{' '.join(tech.split()[1:])}</div>
             <div style="font-size: 0.875rem; color: #94a3b8;">{desc}</div>
         </div>
         """, unsafe_allow_html=True)
+
+# Help Section
+with st.expander("ℹ️ How to Use CareerLens AI"):
+    st.markdown("""
+    ### 🚀 Getting Started
+    
+    **1. CV-JD Matching:**
+    - Upload your CV (PDF, DOCX, or TXT)
+    - Paste the job description
+    - Get instant match score (6-10 seconds processing)
+    - Review matched and missing skills
+    - Download match report as JSON
+    
+    **2. CV Generation:**
+    - Choose from 3 modes:
+      - **Manual Entry:** Fill forms step-by-step
+      - **Auto-Generate:** Upload CV + JD for optimization
+      - **Extract from Documents:** Upload certificates/transcripts
+    - Preview in HTML
+    - Download as DOCX or PDF
+    
+    **3. Interview Preparation:**
+    - **Get Questions:** Generate personalized questions by skill
+    - **Evaluate Answers:** Get AI feedback with STAR scoring
+    - Export questions as JSON/DOCX/PDF
+    
+    **4. Analytics:**
+    - Track your progress over time
+    - View match score trends
+    - Identify skill gaps
+    - Export analytics reports
+    
+    ### 💡 Tips
+    
+    - Stats update in real-time as you use features
+    - Use Export buttons to save your work
+    - Session data resets on browser refresh
+    - Processing times: 6-10 seconds for matching (AI computation)
+    
+    ### 🔧 Troubleshooting
+    
+    - If pages don't load, refresh (F5)
+    - Clear cache if issues persist (Ctrl+Shift+Delete)
+    - Use sidebar navigation, not browser back/forward
+    - Check console (F12) for technical errors
+    """)
 
 # Footer
 st.markdown("<br><br>", unsafe_allow_html=True)
@@ -614,7 +663,7 @@ st.markdown("""
         Powered by SentenceTransformers • Ollama LLM • FastAPI • Streamlit
     </p>
     <p style="color: #475569; font-size: 0.75rem;">
-        © 2024 CareerLens Team. All Rights Reserved.
+        © 2026 CareerLens Team. CSE 299 Junior Design Project.
     </p>
 </div>
 """, unsafe_allow_html=True)
