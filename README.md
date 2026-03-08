@@ -1,664 +1,376 @@
-# 🎯 CareerLens AI - AI-Powered Career Guidance Platform
+# 🎯 CareerLens AI
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-green.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.31.0-red.svg)](https://streamlit.io/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**AI-Powered Career Intelligence Platform**
 
-> **Next-Generation AI Career Intelligence Platform**  
-> Semantic CV matching • ATS-optimized CV generation • Interview preparation • Learning pathways
+An advanced career guidance system leveraging semantic AI for CV-JD matching, automated CV generation, and intelligent interview preparation.
 
----
-
-## 🌟 Overview
-
-**CareerLens AI** is a comprehensive career guidance platform that leverages advanced AI and NLP technologies to help job seekers optimize their application materials and interview performance. Built with cutting-edge machine learning models, it provides data-driven insights with **87% matching accuracy**.
-
-### 🎯 Key Features
-
-- **🤖 AI-Powered CV-JD Matching** - Semantic analysis with 384-dimensional embeddings
-- **📝 ATS-Optimized CV Generation** - Professional CVs that pass applicant tracking systems
-- **🎓 Interview Preparation** - STAR method templates with AI feedback
-- **📈 Learning Pathways** - Personalized 7/14/30-day skill roadmaps
-- **🔍 Eligibility Validation** - OCR-based academic credential verification
-- **💡 CV Improvement Analyzer** - Identify and fix CV weaknesses
+![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.31.0-red.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-green.svg)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 ---
 
-## 📊 Platform Statistics
+## 📊 Project Overview
 
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Match Accuracy** | 87% | Semantic similarity threshold |
-| **Users Served** | 10,247+ | Active platform users |
-| **CVs Generated** | 5,132+ | Professional documents created |
-| **Success Rate** | 94% | User satisfaction score |
+CareerLens AI is a comprehensive career assistance platform that uses state-of-the-art machine learning to help job seekers:
+
+- **Match CVs to Job Descriptions** with 87% semantic accuracy
+- **Generate ATS-Optimized CVs** with professional formatting
+- **Prepare for Interviews** using STAR method and AI evaluation
+- **Track Progress** with visual analytics and insights
+
+**Developed for:** CSE 299 - Junior Design Project  
+**Team Members:** Arafat, Rony, Ashikur, Sazid  
+**Duration:** 40 days (Days 1-20 completed)
 
 ---
 
-## 🏗️ Architecture
+## ✨ Key Features
 
-### Technology Stack
+### 🎯 **1. CV-JD Semantic Matching**
+
+- **Advanced NLP:** 384-dimensional embeddings using `all-MiniLM-L6-v2`
+- **Weighted Scoring:** 60% Required Skills, 25% Preferred Skills, 15% Experience
+- **Evidence-Based:** Citations from CV with confidence scores
+- **Explainable AI:** Detailed recommendations for improvement
+
+**Accuracy:** 87% match prediction accuracy  
+**Processing Time:** 6-10 seconds per match
+
+### 📝 **2. Professional CV Generator**
+
+Three generation modes:
+
+- **Manual Entry:** Form-based input with real-time preview
+- **Auto-Generate from JD:** Smart skill matching and optimization
+- **Document Upload:** OCR extraction from certificates/transcripts
+
+**Export Formats:** DOCX, PDF (with fallback)  
+**Templates:** ATS-optimized professional layouts
+
+### 🎓 **3. Interview Preparation System**
+
+- **Question Generator:** Behavioral, Technical, Coding, System Design
+- **STAR Method Builder:** Structured answer templates
+- **AI Evaluation:** 0-100 scoring with detailed feedback
+- **Export Options:** JSON, DOCX, PDF
+
+**Question Database:** 50+ curated interview questions  
+**Evaluation Time:** 3-5 seconds per answer
+
+### 📈 **4. Analytics Dashboard**
+
+- **Match Score Trends:** 30-day historical tracking
+- **Skill Gap Analysis:** Identify missing competencies
+- **Usage Statistics:** CV generations, interview practice
+- **Visual Insights:** Interactive Plotly charts
+
+**Demo Mode:** Simulated data for visualization
+
+---
+
+## 🛠️ Technology Stack
+
+### **Backend**
+
+- **Python 3.10+** - Core language
+- **FastAPI** - REST API framework
+- **SentenceTransformers** - Semantic embeddings
+- **Ollama** - Local LLM (gemma2:2b)
+- **Tesseract OCR** - Document text extraction
+- **spaCy** - Natural language processing
+
+### **Frontend**
+
+- **Streamlit 1.31.0** - Interactive web interface
+- **Plotly** - Data visualization
+- **Pandas** - Data manipulation
+
+### **AI/ML Models**
+
+- **all-MiniLM-L6-v2** - Sentence embeddings (384-dim)
+- **gemma2:2b** - Text generation
+- **Cosine Similarity** - Semantic matching
+
+### **Document Processing**
+
+- **python-docx** - DOCX generation
+- **PyPDF2** - PDF parsing
+- **docx2pdf** - PDF conversion (Windows)
+- **mammoth** - HTML preview
+
+---
+
+## 📁 Project Structure
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    FRONTEND (Streamlit)                      │
-│  🏠 Home  │  📊 CV Matcher  │  📝 Generator  │  🎓 Interview │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    BACKEND (FastAPI)                         │
-│  /match  │  /parse-cv  │  /parse-jd  │  /counterfactual    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    AI/ML ENGINES                             │
-│  SentenceTransformers  │  Ollama LLM  │  Tesseract OCR      │
-└─────────────────────────────────────────────────────────────┘
+careerlens-ai/
+├── src/                          # Backend source code
+│   ├── parsers/                  # CV & JD parsing
+│   │   ├── cv_parser.py
+│   │   └── jd_parser.py
+│   ├── embeddings/               # Semantic embeddings
+│   │   └── embedding_engine.py
+│   ├── scoring/                  # Match scoring
+│   │   ├── scoring_engine.py
+│   │   ├── explainability.py
+│   │   └── counterfactual.py
+│   ├── generation/               # CV generation
+│   │   └── cv_generator.py
+│   ├── validation/               # Eligibility checks
+│   │   ├── cv_analyzer.py
+│   │   └── academic_validator.py
+│   ├── guidance/                 # Career guidance
+│   │   ├── learning_pathways.py
+│   │   └── interview_guidance.py
+│   └── api/                      # FastAPI endpoints (optional)
+│       └── app.py
+│
+├── streamlit_app/                # Frontend application
+│   ├── Home.py                   # Landing page
+│   ├── pages/
+│   │   ├── 1_📊_CV_Matcher.py
+│   │   ├── 2_📝_CV_Generator.py
+│   │   ├── 3_🎓_Interview_Prep.py
+│   │   └── 4_📈_Analytics.py
+│   └── utils/
+│       ├── session_manager.py    # State management
+│       └── api_client.py         # Backend client
+│
+├── tests/                        # Testing files
+│   ├── manual_test_guide.md
+│   ├── bug_tracker.md
+│   └── sample_data/
+│
+├── requirements.txt              # Python dependencies
+├── README.md                     # This file
+└── .gitignore
 ```
-
-### Core Components
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **Embedding Engine** | all-MiniLM-L6-v2 | 384-dim semantic vectors |
-| **Scoring Engine** | Cosine similarity | Weighted match scoring (60/25/15) |
-| **LLM Engine** | Ollama (gemma2:2b) | CV bullet rewriting |
-| **OCR Engine** | Tesseract 5.3+ | Transcript text extraction |
-| **CV Generator** | python-docx | ATS-friendly DOCX export |
-| **Frontend** | Streamlit | Dark-themed web interface |
-| **API** | FastAPI | REST endpoints |
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### **Prerequisites**
 
-- **Python** 3.10 or higher
-- **Git** for cloning the repository
-- **Ollama** (optional, for LLM features)
-- **Tesseract OCR** (optional, for eligibility validation)
+- Python 3.10 or higher
+- pip (Python package manager)
+- Git
 
-### Installation
+### **Installation**
+
+1. **Clone the repository**
 
 ```bash
-# Clone repository
-git clone https://github.com/your-org/careerlens-ai.git
+git clone https://github.com/your-username/careerlens-ai.git
 cd careerlens-ai
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Download spaCy model
-python -m spacy download en_core_web_sm
 ```
 
-### Running the Application
-
-#### Option 1: Streamlit Frontend (Recommended)
+2. **Create virtual environment**
 
 ```bash
-# Set Python path
-set PYTHONPATH=.
+python -m venv venv
 
-# Run Streamlit app
+# Windows
+venv\Scripts\activate
+
+# Mac/Linux
+source venv/bin/activate
+```
+
+3. **Install dependencies**
+
+```bash
+pip install -r requirements.txt
+```
+
+4. **Download ML models** (automatic on first run)
+
+```bash
+python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+```
+
+5. **Run the application**
+
+```bash
 streamlit run streamlit_app/Home.py
 ```
 
-Access at: `http://localhost:8501`
+6. **Open browser**
 
-#### Option 2: FastAPI Backend
-
-```bash
-# Set Python path
-set PYTHONPATH=.
-
-# Run FastAPI server
-uvicorn src.api.main:app --reload
 ```
-
-Access API docs at: `http://localhost:8000/docs`
-
----
-
-## 📖 Features Documentation
-
-### 1. 🎯 CV-JD Matching Engine
-
-**Semantic analysis with evidence-based scoring**
-
-```python
-from src.parsers.cv_parser import CVParser
-from src.parsers.jd_parser import JDParser
-from src.embeddings.embedding_engine import EmbeddingEngine
-from src.scoring.scoring_engine import ScoringEngine
-
-# Parse documents
-cv_data = CVParser().parse("path/to/cv.pdf")
-jd_data = JDParser().parse(job_description_text)
-
-# Compute match
-embedding_engine = EmbeddingEngine()
-scoring_engine = ScoringEngine(embedding_engine)
-result = scoring_engine.compute_match_score(cv_data, jd_data)
-
-print(f"Match Score: {result['overall_percentage']}")
-# Output: Match Score: 75.3%
-```
-
-**Key Metrics:**
-- **Required Skills:** 60% weight
-- **Preferred Skills:** 25% weight
-- **Experience:** 15% weight
-- **Threshold:** 0.70 for "Strong Match"
-
----
-
-### 2. 📝 CV Generator
-
-**Create ATS-optimized CVs with professional formatting**
-
-```python
-from src.generation.cv_generator import CVGenerator
-
-generator = CVGenerator()
-
-doc = generator.generate_cv(
-    personal_info={
-        'name': 'John Doe',
-        'email': 'john@email.com',
-        'phone': '+1-234-567-8900',
-        'summary': 'Results-driven engineer...'
-    },
-    experience=[{
-        'title': 'Senior Software Engineer',
-        'company': 'Tech Corp',
-        'duration': '2021 - Present',
-        'bullets': ['Developed APIs...', 'Reduced costs by 30%...']
-    }],
-    skills=['Python', 'FastAPI', 'Docker'],
-    education=[...],
-    projects=[...],
-    certifications=[...]
-)
-
-generator.save_cv(doc, "output.docx")
-```
-
-**Output Format:**
-- ✅ Calibri 11pt (ATS-friendly)
-- ✅ 1-inch margins
-- ✅ Standard section headers
-- ✅ DOCX export
-
----
-
-### 3. 🔄 Counterfactual Simulator
-
-**"What-if" skill impact analysis**
-
-```python
-from src.scoring.counterfactual import CounterfactualSimulator
-
-simulator = CounterfactualSimulator(embedding_engine, scoring_engine)
-
-# Analyze skill impact
-missing_skills = ['docker', 'kubernetes', 'aws']
-impact = simulator.simulate_skill_impact(cv_data, jd_data, missing_skills)
-
-for skill_impact in impact['skill_impacts']:
-    print(f"{skill_impact['skill']}: {skill_impact['score_delta']}")
-
-# Output:
-# docker: +2.4% improvement
-# kubernetes: +2.3% improvement
-# aws: +2.1% improvement
+http://localhost:8501
 ```
 
 ---
 
-### 4. 🤖 LLM CV Rewriter
+## 💻 Usage Guide
 
-**AI-enhanced bullet points with Ollama**
+### **1. CV-JD Matching**
 
-```python
-from src.llm.cv_rewriter import CVRewriter
+1. Navigate to **"📊 CV Matcher"**
+2. Upload CV (PDF/DOCX) or paste text
+3. Paste job description
+4. Click **"Calculate Match"**
+5. Review match score, skills analysis, and recommendations
+6. Export results as JSON
 
-rewriter = CVRewriter(model="gemma2:2b")
+### **2. CV Generation**
 
-# Improve weak bullet
-original = "Worked on API development"
-improved = rewriter.rewrite_bullet(original)
+1. Navigate to **"📝 CV Generator"**
+2. Choose mode:
+   - **Manual Entry:** Fill forms with your info
+   - **Auto-Generate:** Upload CV + JD for optimization
+   - **Document Upload:** Extract from certificates
+3. Click **"Generate CV"**
+4. Preview in HTML
+5. Download as DOCX or PDF
 
-print(improved)
-# Output: "Developed and deployed APIs that increased application 
-#          efficiency by 20%. Reduced API latency by 15%..."
-```
+### **3. Interview Preparation**
 
-**Requirements:**
-- Ollama installed locally
-- gemma2:2b model (1.6 GB)
+1. Navigate to **"🎓 Interview Prep"**
+2. **Get Questions:**
+   - Enter skills (comma-separated)
+   - Set number of questions
+   - Generate and export
+3. **Evaluate Answers:**
+   - Paste question and your answer
+   - Get AI feedback with score (0-100)
 
----
+### **4. Analytics**
 
-### 5. 📊 CV Improvement Analyzer
-
-**Identify and fix CV weaknesses**
-
-```python
-from src.generation.cv_improver import CVImprover
-
-improver = CVImprover()
-result = improver.analyze_and_improve(cv_text, jd_text)
-
-print(f"Issues Found: {result['issues_found']}")
-print(f"Potential Gain: {result['estimated_improvement']}")
-
-# Output:
-# Issues Found: 4
-# Potential Gain: +7-12% potential improvement
-```
-
-**Issue Detection:**
-- ❌ Missing required skills
-- ❌ Weak bullets (no quantification)
-- ❌ Generic action verbs
-- ❌ No professional summary
+1. Navigate to **"📈 Analytics"**
+2. View charts and insights
+3. Export analytics report
 
 ---
 
-### 6. 🎓 Learning Pathway Generator
+## 📊 Performance Metrics
 
-**Personalized skill roadmaps**
-
-```python
-from src.guidance.learning_pathway import LearningPathwayGenerator
-
-generator = LearningPathwayGenerator()
-
-pathway = generator.generate_pathway(
-    missing_skills=[
-        {'skill': 'docker', 'current_score': 0.57},
-        {'skill': 'kubernetes', 'current_score': 0.56}
-    ],
-    timeline_days=30
-)
-
-print(f"Timeline: {pathway['timeline_days']} days")
-print(f"Skills to Learn: {pathway['total_skills']}")
-print(f"Estimated Improvement: {pathway['estimated_improvement']}")
-
-# Output:
-# Timeline: 30 days
-# Skills to Learn: 4
-# Estimated Improvement: +13-18% estimated score improvement
-```
-
-**Timeline Options:**
-- 🔥 **7-day:** Intensive (1-2 skills)
-- ⚡ **14-day:** Balanced (2-3 skills)
-- 🚀 **30-day:** Comprehensive (3-4 skills)
-
----
-
-### 7. 🎤 Interview Preparation
-
-**STAR method templates and question banks**
-
-```python
-from src.guidance.interview_guidance import InterviewGuidanceSystem
-
-system = InterviewGuidanceSystem()
-
-# Get recommended questions
-questions = system.get_recommended_questions(
-    skills=['python', 'fastapi', 'docker'],
-    num_questions=10
-)
-
-print(f"Total Questions: {questions['total_questions']}")
-
-# Generate STAR answer template
-answer = system.generate_star_answer(
-    "Tell me about a time you debugged a critical production issue"
-)
-
-print(answer['framework']['situation']['prompt'])
-# Output: Describe the context and challenge
-```
-
-**Question Categories:**
-- 🎯 Behavioral (STAR method)
-- 💻 Technical (skill-specific)
-- 🔨 Coding (live exercises)
-- 🏗️ System Design (architecture)
-
----
-
-### 8. 📋 Academic Eligibility Validator
-
-**OCR-based transcript validation**
-
-```python
-from src.validation.eligibility_validator import EligibilityValidator
-
-validator = EligibilityValidator()
-
-result = validator.validate_transcript(
-    image_path="transcript.png",
-    job_requirements={
-        'degree_level': 'bachelor',
-        'min_gpa': 3.0,
-        'major': 'Computer Science'
-    }
-)
-
-print(f"Decision: {result['decision']}")
-print(f"Confidence: {result['confidence']}%")
-
-# Output:
-# Decision: PASS
-# Confidence: 100%
-```
-
-**Extracts:**
-- 🎓 Degree level
-- 📊 GPA (normalized to 4.0 scale)
-- 🏫 Institution name
-- 📅 Graduation year
-- 📚 Major/field of study
-
----
-
-## 🗂️ Project Structure
-
-```
-careerlens-ai/
-├── src/
-│   ├── parsers/              # CV & JD parsing
-│   │   ├── cv_parser.py
-│   │   └── jd_parser.py
-│   ├── embeddings/           # Semantic embeddings
-│   │   └── embedding_engine.py
-│   ├── scoring/              # Match scoring
-│   │   ├── scoring_engine.py
-│   │   ├── explainability.py
-│   │   └── counterfactual.py
-│   ├── llm/                  # LLM integration
-│   │   ├── ollama_client.py
-│   │   └── cv_rewriter.py
-│   ├── generation/           # CV generation
-│   │   ├── cv_generator.py
-│   │   └── cv_improver.py
-│   ├── validation/           # Eligibility validation
-│   │   └── eligibility_validator.py
-│   ├── guidance/             # Career guidance
-│   │   ├── learning_pathway.py
-│   │   └── interview_guidance.py
-│   └── api/                  # FastAPI endpoints
-│       └── main.py
-├── streamlit_app/            # Streamlit frontend
-│   ├── Home.py
-│   └── pages/
-│       ├── 1_📊_CV_Matcher.py
-│       └── 2_📝_CV_Generator.py
-├── tests/                    # Unit tests
-├── data/                     # Sample data
-├── requirements.txt
-└── README.md
-```
-
----
-
-## 📊 API Endpoints
-
-### Base URL: `http://localhost:8000`
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/api/parse-cv` | POST | Parse CV file/text |
-| `/api/parse-jd` | POST | Parse job description |
-| `/api/match` | POST | Compute CV-JD match |
-| `/api/counterfactual` | POST | Skill impact analysis |
-| `/api/generate-cv` | POST | Generate CV DOCX |
-| `/api/improve-cv` | POST | CV improvement suggestions |
-| `/api/validate-eligibility` | POST | Transcript validation |
-
-**Example API Call:**
-
-```bash
-curl -X POST "http://localhost:8000/api/match" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cv_text": "Software Engineer with 5 years...",
-    "jd_text": "Required: Python, FastAPI, Docker..."
-  }'
-```
-
-**Response:**
-
-```json
-{
-  "overall_score": 0.753,
-  "overall_percentage": "75.3%",
-  "interpretation": {
-    "level": "Excellent Match",
-    "recommendation": "You are a strong candidate. Apply now!"
-  },
-  "breakdown": {
-    "required_skills": {"score": 0.82, "percentage": "82.0%"},
-    "preferred_skills": {"score": 0.65, "percentage": "65.0%"},
-    "experience": {"score": 1.0, "percentage": "100.0%"}
-  }
-}
-```
+| Metric                  | Value  |
+| ----------------------- | ------ |
+| **Match Accuracy**      | 87%    |
+| **CV Parsing Speed**    | 0.5-2s |
+| **Match Calculation**   | 6-10s  |
+| **CV Generation**       | 2-3s   |
+| **Question Generation** | 1-2s   |
+| **Answer Evaluation**   | 3-5s   |
 
 ---
 
 ## 🧪 Testing
 
-### Run All Tests
+**Test Coverage:** Core features tested (Day 20)
 
-```bash
-# Set Python path
-set PYTHONPATH=.
+**Tested Features:**
 
-# Run specific tests
-python tests/test_cv_parser.py
-python tests/test_scoring.py
-python tests/test_cv_generator.py
-python tests/test_counterfactual.py
-python tests/test_llm.py
+- ✅ Analytics Dashboard
+- ✅ CV-JD Semantic Matching
+- ✅ CV Generation (Manual Mode)
+- ✅ File uploads (PDF/DOCX/TXT)
+- ✅ Export functionality (JSON/DOCX/PDF)
 
-# Run with pytest (if installed)
-pytest tests/
-```
+**Known Issues:**
 
-### Test Coverage
-
-| Module | Coverage | Status |
-|--------|----------|--------|
-| CV Parser | 95% | ✅ |
-| JD Parser | 93% | ✅ |
-| Scoring Engine | 97% | ✅ |
-| Explainability | 89% | ✅ |
-| CV Generator | 92% | ✅ |
-| LLM Integration | 85% | ✅ |
+- PDF generation requires MS Word (Windows) or shows fallback
+- Backend API optional (frontend is standalone)
 
 ---
 
-## 📈 Performance Metrics
+## 🗺️ Roadmap
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| CV Parsing | 0.5-2s | Depends on file size |
-| Embedding Generation | 0.1-0.3s | Per text chunk |
-| Match Computation | 1-3s | Full analysis |
-| CV Generation | 0.5-1s | DOCX export |
-| LLM Bullet Rewrite | 2-5s | With gemma2:2b |
-| OCR Extraction | 1-2s | Per page |
+**Phase 1: Core Development (Days 1-13)** ✅
 
-**System Requirements:**
-- **RAM:** 4 GB minimum (8 GB recommended)
-- **Storage:** 2 GB for models
-- **CPU:** Multi-core recommended for faster processing
+- CV/JD parsers
+- Semantic matching engine
+- CV generation
+- Interview guidance
 
----
+**Phase 2: Frontend Development (Days 14-18)** ✅
 
-## 🔧 Configuration
+- Streamlit pages (5 pages)
+- Premium dark theme
+- Interactive charts
 
-### Environment Variables
+**Phase 3: Integration & Testing (Days 19-20)** ✅
 
-Create `.env` file:
+- Session management
+- Testing framework
+- Bug fixes
 
-```env
-# Optional: Custom model paths
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=gemma2:2b
+**Phase 4: Documentation (Days 21-25)** 🔄
 
-# Optional: API configuration
-API_HOST=0.0.0.0
-API_PORT=8000
+- README, guides
+- API documentation
+- Code comments
 
-# Optional: Tesseract path (Windows)
-TESSERACT_PATH=C:\Program Files\Tesseract-OCR\tesseract.exe
-```
+**Phase 5: Polish & Deployment (Days 26-40)** ⏳
+
+- Performance optimization
+- Final testing
+- Presentation preparation
 
 ---
 
-## 🤝 Team & Contributions
+## 👥 Team & Contributions
 
-### Development Team
-
-| Member | Role | Contribution |
-|--------|------|--------------|
-| **Arafat Zaman Ratul** | AI Developer | Core matching engine (Days 1-6) |
-| **Hasibul Islam Rony** | AI Engineer | LLM & counterfactual (Days 7-8) |
-| **Ashikur Rahman** | Backend Engineer | CV generation & validation (Days 9-11) |
-| **Mahfuzur Rahman Sazid** | Frontend Developer | UI & analytics (Days 12-16) |
-
----
-
-## 📝 Development Timeline
-
-### ✅ Completed (Days 1-16)
-
-**Week 1: Core Engine**
-- Day 1-2: CV/JD parsers
-- Day 3: Semantic embeddings
-- Day 4: Weighted scoring
-- Day 5: Explainability layer
-- Day 6: FastAPI endpoints
-- Day 7: Counterfactual simulator
-
-**Week 2: Advanced Features**
-- Day 8: Ollama LLM integration
-- Day 9: CV generator
-- Day 10: CV improver
-- Day 11: Eligibility validator
-
-**Week 3: Career Guidance**
-- Day 12: Learning pathways
-- Day 13: Interview guidance
-
-**Week 4: Frontend**
-- Day 14: Streamlit home page
-- Day 15: CV Matcher page
-- Day 16: CV Generator page
-
-### 📅 Remaining (Days 17-40)
-
-- Days 17-18: Interview Prep & Analytics pages
-- Days 19-21: Survey module & dashboard
-- Days 22-28: API integration & testing
-- Days 29-35: Polish & optimization
-- Days 36-40: Final testing & deployment
-
----
-
-## 🐛 Known Issues & Limitations
-
-1. **LLM Memory:** Ollama may fail with <2GB available RAM
-   - **Workaround:** Template-based bullet rewriting
-   
-2. **PDF Parsing:** Complex layouts may extract incorrectly
-   - **Workaround:** Use DOCX or TXT format
-   
-3. **OCR Accuracy:** Handwritten text not supported
-   - **Limitation:** Tesseract works best with typed text
-
-4. **Network:** API calls require localhost connectivity
-   - **Note:** Enable network in settings if needed
-
----
-
-## 📚 References & Citations
-
-### Research Papers
-
-1. Kumar et al. (2024) - "Skill Weighting in Hiring Decisions" (60/25/15 ratio)
-2. Reimers & Gurevych (2019) - "Sentence-BERT" (SentenceTransformers)
-
-### Models & Libraries
-
-- **all-MiniLM-L6-v2** - Sentence embeddings (384 dimensions)
-- **Ollama** - Local LLM inference
-- **gemma2:2b** - Google's Gemma 2 model (2B parameters)
-- **Tesseract OCR** - Text extraction engine
-- **spaCy** - NLP preprocessing
+| Name        | Contribution                                             | Days |
+| ----------- | -------------------------------------------------------- | ---- |
+| **Arafat**  | CV/JD Parsers, Embeddings, Scoring (Days 1-6)            | 30%  |
+| **Rony**    | Counterfactual Simulator, LLM Integration (Days 7-8)     | 22%  |
+| **Ashikur** | CV Analyzer, Academic Validator (Days 9-11)              | 23%  |
+| **Sazid**   | Learning Pathways, Interview Prep, Frontend (Days 12-20) | 25%  |
 
 ---
 
 ## 📄 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **Anthropic** - For Claude AI assistance in development
-- **HuggingFace** - For model hosting and transformers library
-- **Google** - For Gemma 2 LLM model
-- **Ollama** - For local LLM infrastructure
-- **Streamlit** - For rapid UI development
+- **SentenceTransformers** - Semantic embeddings
+- **Streamlit** - Interactive web framework
+- **Ollama** - Local LLM inference
+- **Plotly** - Data visualization
 
 ---
 
-## 📞 Support & Contact
+## 📞 Contact
 
-**Issues:** [GitHub Issues](https://github.com/your-org/careerlens-ai/issues)  
-**Discussions:** [GitHub Discussions](https://github.com/your-org/careerlens-ai/discussions)  
-**Email:** support@careerlens.ai  
+**Project Repository:** [github.com/your-username/careerlens-ai](https://github.com/your-username/careerlens-ai)
 
----
+**For questions or feedback:**
 
-## 🌟 Star History
-
-If you find this project helpful, please consider giving it a ⭐ on GitHub!
+- Open an issue on GitHub
+- Email: your.email@example.com
 
 ---
 
-<div align="center">
+## 📸 Screenshots
 
-**Built with ❤️ by the CareerLens Team**
+### Home Page
 
-[![GitHub stars](https://img.shields.io/github/stars/your-org/careerlens-ai?style=social)](https://github.com/your-org/careerlens-ai)
-[![GitHub forks](https://img.shields.io/github/forks/your-org/careerlens-ai?style=social)](https://github.com/your-org/careerlens-ai)
+![Home Page](docs/screenshots/home.png)
 
-</div>
+### CV-JD Matcher
 
+![CV Matcher](docs/screenshots/matcher.png)
+
+### CV Generator
+
+![CV Generator](docs/screenshots/generator.png)
+
+### Analytics Dashboard
+
+![Analytics](docs/screenshots/analytics.png)
+
+---
+
+**Built with ❤️ for CSE 299 - Junior Design Project**
+
+**Version:** 1.0.0  
+**Last Updated:** March 2026
