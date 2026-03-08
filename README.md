@@ -317,10 +317,10 @@ http://localhost:8501
 
 | Name        | Contribution                                             | Days |
 | ----------- | -------------------------------------------------------- | ---- |
-| **Arafat**  | CV/JD Parsers, Embeddings, Scoring (Days 1-6)            | 30%  |
-| **Rony**    | Counterfactual Simulator, LLM Integration (Days 7-8)     | 22%  |
-| **Ashikur** | CV Analyzer, Academic Validator (Days 9-11)              | 23%  |
-| **Sazid**   | Learning Pathways, Interview Prep, Frontend (Days 12-20) | 25%  |
+| **Arafat**  | CV/JD Parsers, Embeddings, Scoring (Days 1-6)            | ---  |
+| **Rony**    | Counterfactual Simulator, LLM Integration (Days 7-8)     | ---  |
+| **Ashikur** | CV Analyzer, Academic Validator (Days 9-11)              | ---  |
+| **Sazid**   | Learning Pathways, Interview Prep, Frontend (Days 12-20) | ---  |
 
 ---
 
