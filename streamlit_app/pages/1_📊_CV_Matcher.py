@@ -1,11 +1,12 @@
 """
-CV-JD Matcher Page - Streamlit Frontend
+CV-JD Matcher Page - Enhanced with Progress Indicators and Error Handling
 """
 import streamlit as st
 import sys
 from pathlib import Path
 import tempfile
 import json
+import time
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -184,6 +185,8 @@ try:
     st.success("✅ AI engines loaded successfully!")
 except Exception as e:
     st.error(f"❌ Failed to load AI engines: {str(e)}")
+    with st.expander("🔧 Debug Information"):
+        st.code(f"Error: {str(e)}\n\nPlease restart the application.")
     st.stop()
 
 # Two columns: CV upload and JD input
@@ -244,17 +247,26 @@ with col_btn2:
     analyze_button = st.button("🎯 Analyze Match", type="primary", use_container_width=True)
 
 if analyze_button:
-    # Validate inputs
+    # Validation
     if not jd_text:
-        st.error("❌ Please provide a job description")
+        st.error("❌ **Please provide a job description**")
+        st.info("💡 **Tip:** Paste the complete job posting including required skills, responsibilities, and experience requirements.")
         st.stop()
     
     if not uploaded_file and not cv_text:
-        st.error("❌ Please upload a CV or paste CV text")
+        st.error("❌ **Please upload a CV or paste CV text**")
+        st.info("💡 **Tip:** You can either upload a PDF/DOCX file or paste your CV text directly.")
         st.stop()
     
-    # Parse CV
-    with st.spinner("📄 Parsing CV..."):
+    # Progress tracking
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    try:
+        # Step 1: Parse CV (20%)
+        status_text.info("📄 **Step 1/5:** Parsing your CV...")
+        progress_bar.progress(20)
+        
         cv_parser = CVParser()
         
         try:
@@ -272,34 +284,137 @@ if analyze_button:
                 }
             
             st.success("✅ CV parsed successfully!")
+            time.sleep(0.3)
+            
         except Exception as e:
-            st.error(f"❌ Failed to parse CV: {str(e)}")
+            progress_bar.empty()
+            status_text.empty()
+            st.error(f"❌ **Failed to parse CV**")
+            st.warning(f"""
+            **Possible causes:**
+            - File is corrupted or in unsupported format
+            - File contains only images (no extractable text)
+            - File encoding issue
+            
+            **Solutions:**
+            - Try converting to plain text format
+            - Copy and paste content manually
+            - Ensure file contains readable text
+            
+            **Technical details:** {str(e)}
+            """)
             st.stop()
-    
-    # Parse JD
-    with st.spinner("💼 Parsing job description..."):
+        
+        # Step 2: Parse JD (40%)
+        status_text.info("💼 **Step 2/5:** Analyzing job description...")
+        progress_bar.progress(40)
+        
         try:
             jd_parser = JDParser()
             jd_data = jd_parser.parse(jd_text)
-            st.success(f"✅ Found {len(jd_data['required_skills'])} required skills, {len(jd_data.get('preferred_skills', []))} preferred skills")
+            
+            num_required = len(jd_data.get('required_skills', []))
+            num_preferred = len(jd_data.get('preferred_skills', []))
+            
+            st.success(f"✅ Found {num_required} required skills, {num_preferred} preferred skills")
+            time.sleep(0.3)
+            
         except Exception as e:
-            st.error(f"❌ Failed to parse JD: {str(e)}")
+            progress_bar.empty()
+            status_text.empty()
+            st.error(f"❌ **Failed to parse job description**")
+            st.warning(f"""
+            **Possible causes:**
+            - JD text is incomplete
+            - No clear skills section found
+            
+            **Solutions:**
+            - Include the complete job posting
+            - Ensure skills are clearly listed
+            - Try reformatting the JD
+            
+            **Technical details:** {str(e)}
+            """)
             st.stop()
-    
-    # Compute match
-    with st.spinner("🧠 Computing match score (this may take 10-15 seconds)..."):
+        
+        # Step 3: Generate Embeddings (60%)
+        status_text.info("🧠 **Step 3/5:** Generating semantic embeddings (AI processing)...")
+        progress_bar.progress(60)
+        time.sleep(0.5)  # Brief pause for UX
+        
+        # Step 4: Calculate Match (80%)
+        status_text.info("🎯 **Step 4/5:** Calculating match score...")
+        progress_bar.progress(80)
+        
         try:
             match_result = scoring_engine.compute_match_score(cv_data, jd_data)
+            time.sleep(0.3)
+            
+        except Exception as e:
+            progress_bar.empty()
+            status_text.empty()
+            st.error(f"❌ **Failed to compute match score**")
+            st.warning(f"""
+            **This is an AI model error. Please:**
+            1. Restart the application
+            2. Check system has 8GB+ RAM
+            3. Try with shorter CV/JD text
+            4. Reinstall dependencies if issue persists
+            
+            **Technical details:** {str(e)}
+            """)
+            st.stop()
+        
+        # Step 5: Generate Evidence (95%)
+        status_text.info("📊 **Step 5/5:** Generating insights and recommendations...")
+        progress_bar.progress(95)
+        
+        try:
             explanation = explainability_engine.explain_match(cv_data, jd_data, match_result)
             
-            # Store in session state
-            st.session_state.match_result = match_result
-            st.session_state.explanation = explanation
-            
-            st.success("✅ Match analysis complete!")
         except Exception as e:
-            st.error(f"❌ Failed to compute match: {str(e)}")
-            st.stop()
+            progress_bar.empty()
+            status_text.empty()
+            st.error(f"❌ **Failed to generate explanations**")
+            st.warning(f"""
+            **Match score calculated but explanations failed.**
+            
+            **You can still see your match score below.**
+            
+            **Technical details:** {str(e)}
+            """)
+            explanation = {'evidence': {}, 'recommendations': []}
+        
+        # Complete (100%)
+        progress_bar.progress(100)
+        status_text.success("✅ **Match analysis complete!**")
+        time.sleep(0.5)
+        
+        # Clear progress indicators
+        progress_bar.empty()
+        status_text.empty()
+        
+        # Store in session state
+        st.session_state.match_result = match_result
+        st.session_state.explanation = explanation
+        
+        st.balloons()
+        
+    except Exception as e:
+        progress_bar.empty()
+        status_text.empty()
+        st.error(f"❌ **Unexpected error during matching**")
+        st.warning(f"""
+        **Something went wrong. Please try:**
+        - Refreshing the page
+        - Using different CV/JD
+        - Restarting the application
+        
+        **Technical details:** {str(e)}
+        """)
+        with st.expander("🔧 Debug Information (for developers)"):
+            st.code(f"Exception Type: {type(e).__name__}\nException Message: {str(e)}")
+        st.stop()
 
 # Display results if available
 if st.session_state.match_result:
@@ -449,7 +564,7 @@ if st.session_state.match_result:
             'explanation': explanation
         }
         st.download_button(
-            "📄 Download JSON Report",
+            label="📄 Download Match Results (JSON)",
             data=json.dumps(report, indent=2, default=str),
             file_name="match_report.json",
             mime="application/json",
@@ -504,4 +619,35 @@ with st.expander("ℹ️ How does matching work?"):
     - ✅ Include synonyms (e.g., "JS" and "JavaScript")
     - ✅ Quantify your experience (years, projects)
     - ✅ Add context to skills (not just lists)
+    
+    ### Processing Time:
+    
+    - **6-10 seconds** is normal for AI semantic matching
+    - Shows real AI/ML computation is happening
+    - Much more accurate than simple keyword matching
     """)
+
+with st.expander("⌨️ Keyboard Shortcuts & Tips"):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **Navigation:**
+        - Use sidebar to switch pages
+        - Browser back/forward may break state
+        - Refresh (F5) resets session data
+        
+        **File Upload:**
+        - Drag and drop supported
+        - Click to browse files
+        - Max size: 10MB per file
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Tips:**
+        - Export results before leaving page
+        - Use Ctrl+F to search on page
+        - Download files immediately
+        - Clear cache if issues occur
+        """)
