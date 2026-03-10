@@ -3,6 +3,7 @@ Eligibility Validator - Validates academic credentials using OCR
 """
 import pytesseract
 from PIL import Image
+import PyPDF2
 import re
 from typing import Dict, List, Optional, Tuple
 from loguru import logger
@@ -47,6 +48,127 @@ class EligibilityValidator:
         }
         
         logger.info("EligibilityValidator initialized")
+    
+    def validate_eligibility(self, jd_data: Dict, academic_text: str) -> Tuple[bool, str]:
+        """
+        Validate eligibility based on JD requirements and academic documents
+        
+        Args:
+            jd_data: Parsed job description data
+            academic_text: Extracted text from academic documents
+            
+        Returns:
+            Tuple of (is_eligible: bool, reason: str)
+        """
+        try:
+            # Extract requirements from JD
+            required_degree = self._extract_degree_requirement(jd_data)
+            required_gpa = self._extract_gpa_requirement(jd_data)
+            
+            # Parse academic text
+            academic_data = self._parse_transcript(academic_text)
+            
+            failures = []
+            
+            # Check degree
+            if required_degree:
+                if academic_data['degree']:
+                    degree_hierarchy = {'bachelor': 1, 'master': 2, 'phd': 3}
+                    candidate_level = degree_hierarchy.get(academic_data['degree'], 0)
+                    required_level = degree_hierarchy.get(required_degree.lower(), 0)
+                    
+                    if candidate_level < required_level:
+                        failures.append(f"Degree level insufficient (has {academic_data['degree']}, requires {required_degree})")
+                else:
+                    failures.append("Could not verify degree from documents")
+            
+            # Check GPA
+            if required_gpa:
+                if academic_data['gpa'] and academic_data['gpa_scale']:
+                    # Normalize to 4.0 scale
+                    normalized_gpa = (academic_data['gpa'] / academic_data['gpa_scale']) * 4.0
+                    
+                    if normalized_gpa < required_gpa:
+                        failures.append(f"GPA below requirement ({normalized_gpa:.2f} < {required_gpa})")
+                else:
+                    failures.append("Could not verify GPA from documents")
+            
+            # Make decision
+            if failures:
+                return False, "; ".join(failures)
+            else:
+                details = []
+                if academic_data['degree']:
+                    details.append(f"Degree: {academic_data['degree']}")
+                if academic_data['gpa']:
+                    normalized = (academic_data['gpa'] / academic_data['gpa_scale']) * 4.0 if academic_data['gpa_scale'] else academic_data['gpa']
+                    details.append(f"GPA: {normalized:.2f}/4.0")
+                
+                reason = "All requirements met" + (f" ({', '.join(details)})" if details else "")
+                return True, reason
+                
+        except Exception as e:
+            logger.error(f"Validation error: {str(e)}")
+            return False, f"Validation failed: {str(e)}"
+    
+    def _extract_degree_requirement(self, jd_data: Dict) -> Optional[str]:
+        """Extract degree requirement from JD data"""
+        # Check if JD has degree requirements
+        jd_text = jd_data.get('text', '').lower()
+        
+        if 'phd' in jd_text or 'doctorate' in jd_text:
+            return 'phd'
+        elif 'master' in jd_text or "master's" in jd_text:
+            return 'master'
+        elif 'bachelor' in jd_text or "bachelor's" in jd_text:
+            return 'bachelor'
+        
+        return None
+    
+    def _extract_gpa_requirement(self, jd_data: Dict) -> Optional[float]:
+        """Extract GPA requirement from JD data"""
+        jd_text = jd_data.get('text', '')
+        
+        # Pattern: "minimum GPA 3.0", "GPA of 3.5", etc.
+        patterns = [
+            r'minimum gpa[:\s]+(\d+\.\d+)',
+            r'gpa[:\s]+(\d+\.\d+)\s+or higher',
+            r'gpa of[:\s]+(\d+\.\d+)',
+            r'(\d+\.\d+)\s+gpa required'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, jd_text.lower())
+            if match:
+                return float(match.group(1))
+        
+        return None
+    
+    def _extract_text_from_image(self, image_path: str) -> str:
+        """Extract text from image using OCR"""
+        try:
+            image = Image.open(image_path)
+            text = pytesseract.image_to_string(image)
+            logger.debug(f"Extracted {len(text)} characters from image")
+            return text
+        except Exception as e:
+            logger.error(f"OCR error: {str(e)}")
+            return ""
+    
+    def _extract_text_from_pdf(self, pdf_path: str) -> str:
+        """Extract text from PDF"""
+        try:
+            text = ""
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+            
+            logger.debug(f"Extracted {len(text)} characters from PDF")
+            return text
+        except Exception as e:
+            logger.error(f"PDF extraction error: {str(e)}")
+            return ""
     
     def validate_transcript(self,
                            image_path: str,
@@ -106,22 +228,6 @@ class EligibilityValidator:
                 'decision': 'FAIL',
                 'reason': 'Processing error'
             }
-    
-    def _extract_text_from_image(self, image_path: str) -> str:
-        """Extract text from transcript image using OCR"""
-        try:
-            # Open image
-            image = Image.open(image_path)
-            
-            # Perform OCR
-            text = pytesseract.image_to_string(image)
-            
-            logger.debug(f"Extracted {len(text)} characters")
-            return text
-            
-        except Exception as e:
-            logger.error(f"OCR error: {str(e)}")
-            return ""
     
     def _parse_transcript(self, text: str) -> Dict:
         """
