@@ -1,4 +1,3 @@
-# Validation module 
 """
 Validation module - CV analysis and eligibility validation
 """

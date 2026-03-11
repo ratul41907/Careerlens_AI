@@ -1,4 +1,3 @@
-# Guidance module 
 """
 Guidance module - Learning pathways and interview preparation
 """
