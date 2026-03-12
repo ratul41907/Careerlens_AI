@@ -1,7 +1,6 @@
 """
 Counterfactual Simulator - Quantifies skill impact on match scores
 """
-import numpy as np
 from typing import Dict, List, Tuple, Optional
 from loguru import logger
 from copy import deepcopy
@@ -32,7 +31,7 @@ class CounterfactualSimulator:
             skill_to_add: Skill to simulate adding
             
         Returns:
-            Predicted match score percentage after adding skill
+            Predicted match score as FLOAT (not percentage string)
         """
         try:
             # Create modified CV with new skill
@@ -54,10 +53,23 @@ class CounterfactualSimulator:
             # Compute new match score
             new_result = self.scoring_engine.compute_match_score(modified_cv, jd_data)
             
-            return new_result['overall_percentage']
+            # Extract percentage as FLOAT
+            if isinstance(new_result['overall_percentage'], str):
+                # Remove % sign and convert to float
+                percentage_str = new_result['overall_percentage'].replace('%', '').strip()
+                return float(percentage_str)
+            else:
+                return float(new_result['overall_percentage'])
         
         except Exception as e:
             logger.error(f"Error simulating {skill_to_add}: {str(e)}")
             # Return baseline score as fallback
-            baseline = self.scoring_engine.compute_match_score(cv_data, jd_data)
-            return baseline['overall_percentage']
+            try:
+                baseline = self.scoring_engine.compute_match_score(cv_data, jd_data)
+                if isinstance(baseline['overall_percentage'], str):
+                    percentage_str = baseline['overall_percentage'].replace('%', '').strip()
+                    return float(percentage_str)
+                else:
+                    return float(baseline['overall_percentage'])
+            except:
+                return 0.0

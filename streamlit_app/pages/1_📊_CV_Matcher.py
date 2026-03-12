@@ -698,7 +698,7 @@ if st.session_state.match_result:
             with rec_col3:
                 st.markdown("**High**" if i == 1 else "**Medium**" if i == 2 else "**Low**")
     
-    # DAY 24 FEATURE 2: Counterfactual Skill Impact Analysis
+# DAY 24 FEATURE 2: Counterfactual Skill Impact Analysis
     st.markdown("---")
     st.markdown("### 🎯 Skill Impact Simulation")
     st.info("💡 **What if you learned a missing skill?** See predicted score improvements:")
@@ -713,6 +713,56 @@ if st.session_state.match_result:
         for skill_detail in match_result['breakdown']['required_skills']['details']['skills']:
             if not skill_detail['matched']:
                 missing_required.append(skill_detail['skill'])
+        
+        if missing_required:
+            # Extract current score as float
+            current_percentage = match_result['overall_percentage']
+            if isinstance(current_percentage, str):
+                current_percentage = float(current_percentage.replace('%', '').strip())
+            else:
+                current_percentage = float(current_percentage)
+            
+            # Simulate adding each skill
+            impact_results = []
+            for skill in missing_required[:10]:  # Limit to top 10
+                simulated_score = simulator.simulate_skill_addition(cv_data, jd_data, skill)
+                improvement = simulated_score - current_percentage
+                impact_results.append({
+                    'skill': skill,
+                    'current': current_percentage,
+                    'predicted': simulated_score,
+                    'improvement': improvement
+                })
+            
+            # Sort by improvement (descending)
+            impact_results.sort(key=lambda x: x['improvement'], reverse=True)
+            
+            # Display top 5
+            st.markdown("**🏆 Top 5 High-Impact Skills to Learn:**")
+            
+            for idx, result in enumerate(impact_results[:5], 1):
+                impact_col1, impact_col2, impact_col3 = st.columns([2, 1, 1])
+                
+                with impact_col1:
+                    st.markdown(f"**{idx}. {result['skill']}**")
+                
+                with impact_col2:
+                    st.metric("Predicted Score", f"{result['predicted']:.1f}%", f"+{result['improvement']:.1f}%")
+                
+                with impact_col3:
+                    if result['improvement'] >= 8:
+                        st.success("🔥 High Impact")
+                    elif result['improvement'] >= 5:
+                        st.info("⭐ Medium Impact")
+                    else:
+                        st.warning("💡 Low Impact")
+            
+            st.markdown("**💡 Learning Priority:** Focus on high-impact skills first for maximum score improvement!")
+        else:
+            st.success("✅ You already have all required skills!")
+    
+    except Exception as e:
+        st.warning(f"⚠️ Counterfactual analysis unavailable: {str(e)}")
         
         if missing_required:
             # Simulate adding each skill
