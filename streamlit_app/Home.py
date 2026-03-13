@@ -1,5 +1,5 @@
 """
-CareerLens AI - Premium Dark Theme Home Page with Enhanced UX
+CareerLens AI - Premium Dark Theme Home Page with Enhanced UX + Mobile Support
 """
 import streamlit as st
 import sys
@@ -40,6 +40,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Mobile responsiveness - Day 25
+from mobile_styles import inject_mobile_styles
+inject_mobile_styles()
 
 # Premium Dark Theme CSS
 st.markdown("""
@@ -112,11 +116,25 @@ st.markdown("""
         100% { background-position: 0% 50%; }
     }
     
+    /* Mobile adjustments for gradient text */
+    @media (max-width: 768px) {
+        .gradient-text {
+            font-size: 2rem !important;
+        }
+    }
+    
     .subtitle {
         text-align: center;
         font-size: 1.5rem;
         color: #94a3b8 !important;
         margin-bottom: 3rem;
+    }
+    
+    @media (max-width: 768px) {
+        .subtitle {
+            font-size: 1.1rem !important;
+            margin-bottom: 2rem;
+        }
     }
     
     /* Glass morphism cards */
@@ -135,6 +153,17 @@ st.markdown("""
         transform: translateY(-5px);
         box-shadow: 0 12px 48px rgba(96, 165, 250, 0.2);
         border-color: rgba(96, 165, 250, 0.3);
+    }
+    
+    @media (max-width: 768px) {
+        .glass-card {
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        
+        .glass-card:hover {
+            transform: none;
+        }
     }
     
     /* Feature cards with gradients */
@@ -170,10 +199,28 @@ st.markdown("""
         box-shadow: 0 0 30px rgba(96, 165, 250, 0.3);
     }
     
+    @media (max-width: 768px) {
+        .feature-card {
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        
+        .feature-card:hover {
+            transform: none;
+        }
+    }
+    
     .feature-icon {
         font-size: 3rem;
         margin-bottom: 1rem;
         display: block;
+    }
+    
+    @media (max-width: 768px) {
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
     }
     
     .feature-title {
@@ -183,10 +230,23 @@ st.markdown("""
         color: #60a5fa !important;
     }
     
+    @media (max-width: 768px) {
+        .feature-title {
+            font-size: 1.2rem !important;
+        }
+    }
+    
     .feature-desc {
         color: #cbd5e1 !important;
         line-height: 1.7;
         font-size: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .feature-desc {
+            font-size: 0.9rem !important;
+            line-height: 1.5;
+        }
     }
     
     /* Neon stats boxes */
@@ -221,6 +281,17 @@ st.markdown("""
         box-shadow: 0 0 40px rgba(59, 130, 246, 0.4);
     }
     
+    @media (max-width: 768px) {
+        .neon-stat {
+            padding: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .neon-stat:hover {
+            transform: none;
+        }
+    }
+    
     .stat-value {
         font-size: 3rem;
         font-weight: 800;
@@ -231,11 +302,23 @@ st.markdown("""
         margin-bottom: 0.5rem;
     }
     
+    @media (max-width: 768px) {
+        .stat-value {
+            font-size: 2rem !important;
+        }
+    }
+    
     .stat-label {
         color: #94a3b8 !important;
         font-size: 0.875rem;
         text-transform: uppercase;
         letter-spacing: 0.1em;
+    }
+    
+    @media (max-width: 768px) {
+        .stat-label {
+            font-size: 0.75rem !important;
+        }
     }
     
     /* Glowing buttons */
@@ -297,6 +380,13 @@ st.markdown("""
         box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
     }
     
+    @media (max-width: 768px) {
+        .section-header {
+            font-size: 1.5rem !important;
+            margin: 2rem 0 1.5rem 0;
+        }
+    }
+    
     /* Hero section */
     .hero-section {
         background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
@@ -318,6 +408,21 @@ st.markdown("""
         height: 200%;
         background: radial-gradient(circle, rgba(96, 165, 250, 0.1) 0%, transparent 70%);
         animation: pulse 4s ease-in-out infinite;
+    }
+    
+    @media (max-width: 768px) {
+        .hero-section {
+            padding: 2rem 1rem;
+            margin: 1rem 0;
+        }
+        
+        .hero-section h2 {
+            font-size: 1.5rem !important;
+        }
+        
+        .hero-section p {
+            font-size: 1rem !important;
+        }
     }
     
     @keyframes pulse {
@@ -407,7 +512,7 @@ with st.sidebar:
     # Footer
     st.markdown("""
     <div style="text-align: center; padding: 1rem 0; color: #94a3b8; font-size: 0.75rem;">
-        <p style="margin: 0; color: #94a3b8;">Version 1.0.0</p>
+        <p style="margin: 0; color: #94a3b8;">Version 0.25.0</p>
         <p style="margin: 0.5rem 0 0 0; color: #94a3b8;">© 2026 CareerLens</p>
     </div>
     """, unsafe_allow_html=True)
@@ -459,7 +564,7 @@ with feat1:
             professional layouts that pass applicant tracking systems.
         </div>
         <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-            <strong style="color: #60a5fa;">📊 Multiple Modes</strong> • 
+            <strong style="color: #60a5fa;">📊 4 Generation Modes</strong> • 
             <span style="color: #94a3b8;">DOCX/PDF Export</span>
         </div>
     </div>
@@ -612,16 +717,17 @@ with st.expander("ℹ️ How to Use CareerLens AI"):
     
     **1. CV-JD Matching:**
     - Upload your CV (PDF, DOCX, or TXT)
+    - Optionally upload academic documents for eligibility check
     - Paste the job description
-    - Get instant match score (6-10 seconds processing)
-    - Review matched and missing skills
-    - Download match report as JSON
+    - Get instant match score with counterfactual analysis
+    - Generate personalized learning pathways (7/14/30 days)
     
     **2. CV Generation:**
-    - Choose from 3 modes:
+    - Choose from 4 modes:
       - **Manual Entry:** Fill forms step-by-step
-      - **Auto-Generate:** Upload CV + JD for optimization
-      - **Extract from Documents:** Upload certificates/transcripts
+      - **Auto-Generate:** AI creates CV from job description
+      - **Extract from Documents:** Parse existing CVs
+      - **Improve Existing CV:** Get AI analysis & suggestions
     - Preview in HTML
     - Download as DOCX or PDF
     
@@ -638,17 +744,25 @@ with st.expander("ℹ️ How to Use CareerLens AI"):
     
     ### 💡 Tips
     
+    - **Mobile Friendly:** Works on phones and tablets (Day 25)
     - Stats update in real-time as you use features
     - Use Export buttons to save your work
-    - Session data resets on browser refresh
-    - Processing times: 6-10 seconds for matching (AI computation)
+    - Session data persists during browser session
+    
+    ### 📱 Mobile Support (NEW - Day 25)
+    
+    - ✅ Fully responsive design
+    - ✅ Touch-optimized buttons (44px min height)
+    - ✅ Readable text without zooming
+    - ✅ Columns stack on mobile
+    - ✅ Smooth scrolling
     
     ### 🔧 Troubleshooting
     
     - If pages don't load, refresh (F5)
-    - Clear cache if issues persist (Ctrl+Shift+Delete)
-    - Use sidebar navigation, not browser back/forward
-    - Check console (F12) for technical errors
+    - Clear cache if issues persist
+    - Use sidebar navigation
+    - Check browser console (F12) for errors
     """)
 
 # Footer
@@ -663,7 +777,7 @@ st.markdown("""
         Powered by SentenceTransformers • Ollama LLM • FastAPI • Streamlit
     </p>
     <p style="color: #475569; font-size: 0.75rem;">
-        © 2026 CareerLens Team. CSE 299 Junior Design Project.
+        © 2026 CareerLens Team. CSE 299 Junior Design Project. Version 0.25.0 - Mobile Ready
     </p>
 </div>
 """, unsafe_allow_html=True)
