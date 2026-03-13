@@ -16,6 +16,13 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils.mobile_styles import inject_mobile_styles
 inject_mobile_styles()
+
+# Accessibility - Day 26
+from accessibility import AccessibilityHelper
+accessibility = AccessibilityHelper()
+accessibility.inject_accessibility_css()
+accessibility.add_skip_link()
+
 # Add caching utility import
 sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
 try:
