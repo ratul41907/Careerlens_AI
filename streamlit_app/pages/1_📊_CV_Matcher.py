@@ -10,7 +10,12 @@ import time
 import hashlib
 import gc
 import os
-
+# Mobile responsiveness - Day 25
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils.mobile_styles import inject_mobile_styles
+inject_mobile_styles()
 # Add caching utility import
 sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
 try:
