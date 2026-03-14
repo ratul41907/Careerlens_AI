@@ -19,22 +19,30 @@ class AccessibilityHelper:
            ACCESSIBILITY - DAY 26 (WCAG 2.1 Level AA)
            ============================================================================ */
         
-        /* Skip to main content link */
+        /* Skip to main content link - More Visible */
         .skip-link {
-            position: absolute;
-            top: -40px;
-            left: 0;
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
             background: #3b82f6;
-            color: white;
-            padding: 8px;
+            color: white !important;
+            padding: 1rem 2rem;
             text-decoration: none;
-            z-index: 100;
+            z-index: 10000;
+            border-radius: 0 0 12px 12px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            transition: top 0.3s ease;
+            border: 3px solid #fbbf24;
         }
         
         .skip-link:focus {
             top: 0;
+            outline: 4px solid #fbbf24;
+            outline-offset: 3px;
         }
-        
         /* Focus indicators - WCAG 2.4.7 */
         *:focus {
             outline: 3px solid #60a5fa !important;

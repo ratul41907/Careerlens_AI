@@ -2,6 +2,20 @@
 CV-JD Matcher Page - Enhanced with Caching, Progress, Error Handling, and Missing Features
 """
 import streamlit as st
+
+# ============================================================================
+# PAGE CONFIG - MUST BE FIRST STREAMLIT COMMAND
+# ============================================================================
+st.set_page_config(
+    page_title="CV-JD Matcher - CareerLens AI",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ============================================================================
+# IMPORTS - After page config
+# ============================================================================
 import sys
 from pathlib import Path
 import tempfile
@@ -10,11 +24,17 @@ import time
 import hashlib
 import gc
 import os
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+# Add utils path
+utils_path = Path(__file__).parent.parent / "utils"
+sys.path.insert(0, str(utils_path))
+
 # Mobile responsiveness - Day 25
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils.mobile_styles import inject_mobile_styles
+from mobile_styles import inject_mobile_styles
 inject_mobile_styles()
 
 # Accessibility - Day 26
@@ -23,31 +43,27 @@ accessibility = AccessibilityHelper()
 accessibility.inject_accessibility_css()
 accessibility.add_skip_link()
 
-# Add caching utility import
-sys.path.insert(0, str(Path(__file__).parent.parent / "utils"))
+# Add caching utility import (Day 23)
 try:
     from caching import ModelCache, ComputationCache
     OPTIMIZATION_ENABLED = True
 except ImportError:
     OPTIMIZATION_ENABLED = False
+    st.warning("⚠️ Caching disabled - install caching utilities for better performance")
 
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
+# Import backend modules
 from src.parsers.cv_parser import CVParser
 from src.parsers.jd_parser import JDParser
 from src.embeddings.embedding_engine import EmbeddingEngine
 from src.scoring.scoring_engine import ScoringEngine
 from src.scoring.explainability import ExplainabilityEngine
 
-# Page config
-st.set_page_config(
-    page_title="CV-JD Matcher - CareerLens AI",
-    page_icon="📊",
-    layout="wide"
-)
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+OPTIMIZATION_ENABLED = OPTIMIZATION_ENABLED  # From caching import above
 
+# Rest of your code continues here...
 # Apply dark theme CSS
 st.markdown("""
 <style>
@@ -236,16 +252,18 @@ with col1:
     # CV upload
     uploaded_file = st.file_uploader(
         "Upload CV (PDF, DOCX, or TXT)",
-        type=['pdf', 'docx', 'txt'],
-        help="Upload your resume in PDF, DOCX, or TXT format"
+        accepted_types=['pdf', 'docx', 'txt'],
+        key="cv_upload",
+        help_text="Upload your resume in PDF, DOCX, or TXT format"
     )
     
     # OR paste CV text
     st.markdown("**OR paste CV text:**")
-    cv_text = st.text_area(
+    cv_text = accessibility.accessible_text_area(
         "Paste your CV here",
         height=300,
         placeholder="Paste your CV content here...\n\nInclude:\n• Work experience\n• Skills\n• Education\n• Projects",
+        help_text="Paste the full text of your CV including experience, skills, and education",
         label_visibility="collapsed"
     )
 
@@ -335,8 +353,9 @@ st.markdown("---")
 with col2:
     st.markdown("### 💼 Job Description")
     
-    jd_text = st.text_area(
+    jd_text = accessibility.accessible_text_area(
         "Paste job description",
+        key="jd_textarea",
         height=460,
         placeholder="""Paste the full job description here...
 
@@ -371,8 +390,11 @@ st.markdown("---")
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 
 with col_btn2:
-    analyze_button = st.button("🎯 Analyze Match", type="primary", use_container_width=True)
-
+    analyze_button = accessibility.accessible_button(
+        "🎯 Analyze Match", 
+        key="analyze_match_btn",
+        help_text="Start CV-JD match analysis (takes 6-10 seconds)",
+    )
 if analyze_button:
     # Validation
     if not jd_text:
@@ -542,8 +564,16 @@ if analyze_button:
 # Store results AND data
         st.session_state.match_result = match_result
         st.session_state.explanation = explanation
-        st.session_state.cv_data = cv_data  # ← ADD THIS
-        st.session_state.jd_data = jd_data  # ← ADD THIS        
+        st.session_state.cv_data = cv_data
+        st.session_state.jd_data = jd_data
+        
+        # Accessibility - Announce match completion (Day 26)
+        accessibility.add_aria_live_region(
+            "match-result-announcement",
+            f"Match analysis complete. Your score is {match_result['overall_percentage']}. Results are now displayed below.",
+            politeness="assertive"
+        )
+        
         # Cleanup memory if optimization enabled
         if OPTIMIZATION_ENABLED:
             gc.collect()
