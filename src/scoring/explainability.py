@@ -1,390 +1,247 @@
 """
-Explainability Layer - Provides detailed evidence for match scores
+Explainability Engine - 100% LLM-Based Match Explanations
+Generates natural language explanations for CV-JD matches using Ollama
 """
-import numpy as np
-from typing import Dict, List, Optional, Tuple
-from loguru import logger
-from src.embeddings.embedding_engine import EmbeddingEngine
+import requests
+from typing import Dict, List, Optional
 
 
 class ExplainabilityEngine:
     """
-    Generate human-readable explanations for CV-JD match scores
+    Generate natural language explanations for match scores using LLM
     """
     
-    def __init__(self, embedding_engine: Optional[EmbeddingEngine] = None):
+    def __init__(self, ollama_url: str = "http://localhost:11434"):
         """
         Initialize explainability engine
         
         Args:
-            embedding_engine: Pre-initialized embedding engine
+            ollama_url: Ollama API endpoint
         """
-        if embedding_engine is None:
-            self.embedding_engine = EmbeddingEngine()
-        else:
-            self.embedding_engine = embedding_engine
-        
-        self.evidence_threshold = 0.60  # Minimum score to cite as evidence
+        self.ollama_url = ollama_url
+        self.model = "gemma2:2b"
     
-    def explain_match(self,
-                     cv_data: Dict,
-                     jd_data: Dict,
-                     match_result: Dict) -> Dict:
+    def _call_ollama(self, prompt: str, max_tokens: int = 1000) -> str:
+        """Call Ollama LLM API"""
+        try:
+            response = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "num_predict": max_tokens,
+                        "temperature": 0.7
+                    }
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json().get("response", "")
+            return ""
+        except Exception as e:
+            print(f"Ollama API error: {e}")
+            return ""
+    
+    def explain_match(
+        self,
+        match_result: Dict,
+        cv_data: Dict,
+        jd_data: Dict
+    ) -> Dict:
         """
-        Generate detailed explanations for match result
+        Generate comprehensive explanation for match result
         
         Args:
-            cv_data: Parsed CV data
-            jd_data: Parsed JD data
-            match_result: Result from scoring engine
+            match_result: Match result dict with scores
+            cv_data: CV data
+            jd_data: Job description data
             
         Returns:
-            Dict with detailed explanations
+            Explanation dict with summary, strengths, gaps, recommendations
         """
-        logger.info("Generating explainability report...")
+        # Extract key information
+        overall_score = match_result.get('overall_score', 0) * 100
         
-        cv_text = cv_data.get('text', '')
-        cv_sections = cv_data.get('sections', {})
+        breakdown = match_result.get('breakdown', {})
+        req_skills = breakdown.get('required_skills', {}).get('details', {})
+        pref_skills = breakdown.get('preferred_skills', {}).get('details', {})
+        experience = breakdown.get('experience', {})
         
-        required_skills = jd_data.get('required_skills', [])
-        preferred_skills = jd_data.get('preferred_skills', [])
+        matched_skills = req_skills.get('matched_skills', [])
+        missing_skills = req_skills.get('missing_skills', [])
         
-        # Extract evidence for each skill
-        required_explanations = self._explain_skills(
-            cv_text,
-            cv_sections,
-            required_skills,
-            match_result['breakdown']['required_skills']['details']['skills']
-        )
+        # Build prompt for LLM
+        prompt = f"""You are a career advisor explaining a CV-JD match analysis to a job seeker.
+
+MATCH SCORE: {overall_score:.1f}%
+
+MATCHED SKILLS: {', '.join(matched_skills) if matched_skills else 'None identified'}
+MISSING SKILLS: {', '.join(missing_skills) if missing_skills else 'None identified'}
+
+JOB TITLE: {jd_data.get('sections', {}).get('job_title', 'Not specified')}
+EXPERIENCE REQUIRED: {jd_data.get('sections', {}).get('experience', {}).get('years', 'Not specified')} years
+CANDIDATE EXPERIENCE: {cv_data.get('sections', {}).get('experience', 'Not specified')}
+
+Write a helpful, encouraging explanation with these sections:
+
+1. OVERALL ASSESSMENT (2-3 sentences)
+Provide a clear summary of the match quality and what it means for the candidate.
+
+2. KEY STRENGTHS (3-5 bullet points)
+Highlight what makes this candidate a good fit. Be specific about matched skills and relevant experience.
+
+3. AREAS FOR IMPROVEMENT (3-5 bullet points)
+Identify the gaps and missing skills. Be constructive and specific.
+
+4. ACTIONABLE RECOMMENDATIONS (5-7 bullet points)
+Provide concrete steps the candidate can take to improve their chances:
+- Which skills to learn first (prioritize high-impact)
+- How to highlight existing relevant skills better
+- Experience gaps to address
+- CV improvements to make
+
+Keep the tone professional but encouraging. Focus on actionable advice."""
         
-        preferred_explanations = []
-        if preferred_skills:
-            preferred_explanations = self._explain_skills(
-                cv_text,
-                cv_sections,
-                preferred_skills,
-                match_result['breakdown']['preferred_skills']['details'].get('skills', [])
-            )
+        # Call LLM
+        llm_response = self._call_ollama(prompt, max_tokens=1200)
         
-        # Identify missing skills
-        missing_skills = self._identify_missing_skills(
-            required_skills,
-            match_result['breakdown']['required_skills']['details']['skills']
-        )
+        if not llm_response:
+            # Fallback explanation
+            if overall_score >= 80:
+                summary = f"Excellent match! Your CV scores {overall_score:.1f}%, indicating strong alignment with the job requirements."
+            elif overall_score >= 65:
+                summary = f"Good match at {overall_score:.1f}%. You have most of the required skills with some room for improvement."
+            elif overall_score >= 50:
+                summary = f"Moderate match at {overall_score:.1f}%. Several key skills match, but significant gaps exist."
+            else:
+                summary = f"Limited match at {overall_score:.1f}%. Consider developing the missing skills before applying."
+            
+            strengths = [
+                f"You have {len(matched_skills)} of the required skills",
+                "Your experience aligns with the role level"
+            ] if matched_skills else ["Consider highlighting transferable skills"]
+            
+            gaps = [
+                f"Missing {len(missing_skills)} key skills: {', '.join(missing_skills[:3])}"
+            ] if missing_skills else ["No significant skill gaps identified"]
+            
+            recommendations = [
+                f"Focus on learning: {', '.join(missing_skills[:3])}" if missing_skills else "Continue building expertise",
+                "Tailor your CV to match job keywords",
+                "Quantify your achievements with metrics",
+                "Highlight relevant projects prominently"
+            ]
+            
+            return {
+                'summary': summary,
+                'detailed_explanation': llm_response or summary,
+                'strengths': strengths,
+                'gaps': gaps,
+                'recommendations': recommendations,
+                'match_level': 'High' if overall_score >= 75 else 'Medium' if overall_score >= 50 else 'Low'
+            }
         
-        # Generate recommendations
-        recommendations = self._generate_recommendations(
-            match_result,
-            missing_skills
-        )
-        
-        explanation = {
-            'overall_assessment': self._overall_assessment(match_result),
-            'required_skills_evidence': required_explanations,
-            'preferred_skills_evidence': preferred_explanations,
-            'missing_skills': missing_skills,
-            'recommendations': recommendations,
-            'summary': self._generate_summary(match_result, missing_skills)
+        # Parse LLM response into sections
+        sections = {
+            'summary': '',
+            'strengths': [],
+            'gaps': [],
+            'recommendations': []
         }
         
-        logger.info("Explainability report generated")
-        return explanation
-    
-    def _explain_skills(self,
-                       cv_text: str,
-                       cv_sections: Dict,
-                       skills: List[str],
-                       skill_scores: List[Dict]) -> List[Dict]:
-        """
-        Generate evidence citations for each skill
+        current_section = None
+        lines = llm_response.split('\n')
         
-        Args:
-            cv_text: Full CV text
-            cv_sections: Parsed CV sections
-            skills: List of skills
-            skill_scores: Scores from matching
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
             
-        Returns:
-            List of skill explanations with evidence
-        """
-        explanations = []
-        
-        # Extract evidence sentences from CV
-        evidence_sentences = self._extract_evidence_sentences(cv_sections)
-        
-        if not evidence_sentences:
-            evidence_sentences = cv_text.split('.')
-        
-        # Clean sentences
-        evidence_sentences = [s.strip() for s in evidence_sentences if len(s.strip()) > 20]
-        
-        for skill_info in skill_scores:
-            skill = skill_info['skill']
-            score = skill_info['score']
-            strength = skill_info['strength']
+            line_lower = line.lower()
             
-            # Find best matching evidence
-            evidence = self._find_best_evidence(skill, evidence_sentences)
+            # Detect section headers
+            if 'overall' in line_lower or 'assessment' in line_lower or 'summary' in line_lower:
+                current_section = 'summary'
+                continue
+            elif 'strength' in line_lower or 'fit' in line_lower or 'match' in line_lower:
+                current_section = 'strengths'
+                continue
+            elif 'gap' in line_lower or 'improvement' in line_lower or 'weakness' in line_lower or 'area' in line_lower:
+                current_section = 'gaps'
+                continue
+            elif 'recommend' in line_lower or 'action' in line_lower or 'step' in line_lower or 'suggest' in line_lower:
+                current_section = 'recommendations'
+                continue
             
-            explanation = {
-                'skill': skill,
-                'score': score,
-                'percentage': skill_info['percentage'],
-                'strength': strength,
-                'matched': skill_info['matched'],
-                'evidence': evidence,
-                'explanation': self._skill_explanation(skill, score, strength, evidence)
-            }
-            
-            explanations.append(explanation)
+            # Add content to appropriate section
+            if current_section == 'summary':
+                if not line.startswith(('-', '•', '*', '1', '2', '3')):
+                    sections['summary'] += line + ' '
+            elif current_section in ['strengths', 'gaps', 'recommendations']:
+                if line.startswith(('-', '•', '*')) or (len(line) > 2 and line[0].isdigit() and line[1] in '.)'):
+                    clean_line = line.lstrip('-•*0123456789.)]: ').strip()
+                    if clean_line and len(clean_line) > 10:
+                        sections[current_section].append(clean_line)
         
-        return explanations
-    
-    def _extract_evidence_sentences(self, cv_sections: Dict) -> List[str]:
-        """
-        Extract individual sentences from relevant CV sections
+        # Ensure we have content
+        if not sections['summary']:
+            sections['summary'] = llm_response[:200]
         
-        Args:
-            cv_sections: Parsed CV sections
-            
-        Returns:
-            List of evidence sentences
-        """
-        relevant_sections = ['experience', 'projects', 'skills', 'certifications']
+        if not sections['strengths']:
+            sections['strengths'] = [f"You have {len(matched_skills)} required skills"] if matched_skills else ["Review your transferable skills"]
         
-        sentences = []
-        for section_name in relevant_sections:
-            if section_name in cv_sections:
-                section_text = cv_sections[section_name]
-                
-                # Split by bullet points and newlines
-                lines = section_text.replace('•', '\n').split('\n')
-                
-                for line in lines:
-                    line = line.strip()
-                    if len(line) > 20:  # Meaningful content
-                        # Further split by periods if needed
-                        sub_sentences = line.split('.')
-                        sentences.extend([s.strip() for s in sub_sentences if len(s.strip()) > 20])
+        if not sections['gaps']:
+            sections['gaps'] = [f"Missing: {', '.join(missing_skills[:3])}"] if missing_skills else ["No major gaps identified"]
         
-        return sentences
-    
-    def _find_best_evidence(self,
-                           skill: str,
-                           evidence_sentences: List[str]) -> Optional[Dict]:
-        """
-        Find the best evidence sentence for a skill
+        if not sections['recommendations']:
+            sections['recommendations'] = [
+                "Tailor CV to job keywords",
+                "Quantify achievements",
+                "Highlight relevant projects"
+            ]
         
-        Args:
-            skill: Skill to find evidence for
-            evidence_sentences: List of candidate sentences
-            
-        Returns:
-            Dict with evidence text and score, or None
-        """
-        if not evidence_sentences:
-            return None
-        
-        # Encode skill and all evidence sentences
-        skill_embedding = self.embedding_engine.encode(skill)
-        evidence_embeddings = self.embedding_engine.encode(evidence_sentences)
-        
-        # Compute similarities
-        similarities = []
-        for evidence_emb in evidence_embeddings:
-            sim = self.embedding_engine.compute_similarity(skill_embedding, evidence_emb)
-            similarities.append(sim)
-        
-        # Find best match
-        best_idx = np.argmax(similarities)
-        best_score = similarities[best_idx]
-        
-        if best_score >= self.evidence_threshold:
-            return {
-                'text': evidence_sentences[best_idx],
-                'similarity': round(float(best_score), 4),
-                'confidence': 'High' if best_score >= 0.75 else 'Medium'
-            }
-        
-        return None
-    
-    def _skill_explanation(self,
-                          skill: str,
-                          score: float,
-                          strength: str,
-                          evidence: Optional[Dict]) -> str:
-        """
-        Generate natural language explanation for a skill
-        
-        Args:
-            skill: Skill name
-            score: Match score
-            strength: Strength classification
-            evidence: Evidence dict or None
-            
-        Returns:
-            Human-readable explanation
-        """
-        if strength == "Strong":
-            base = f"Strong evidence of {skill} expertise."
-        elif strength == "Partial":
-            base = f"Some evidence of {skill} experience."
+        # Determine match level
+        if overall_score >= 75:
+            match_level = 'High'
+        elif overall_score >= 50:
+            match_level = 'Medium'
         else:
-            base = f"Little to no evidence of {skill} in CV."
-        
-        if evidence:
-            return f"{base} Found in CV: \"{evidence['text'][:100]}...\""
-        else:
-            return f"{base} No clear evidence found in CV."
-    
-    def _identify_missing_skills(self,
-                                required_skills: List[str],
-                                skill_scores: List[Dict]) -> List[Dict]:
-        """
-        Identify skills that are missing or weak
-        
-        Args:
-            required_skills: List of required skills from JD
-            skill_scores: Match scores for each skill
-            
-        Returns:
-            List of missing/weak skills with details
-        """
-        missing = []
-        
-        for skill_info in skill_scores:
-            if skill_info['strength'] in ['Weak/Missing']:
-                missing.append({
-                    'skill': skill_info['skill'],
-                    'current_score': skill_info['percentage'],
-                    'gap': f"{(0.80 - skill_info['score']) * 100:.1f}% below strong match",
-                    'priority': 'High' if skill_info['score'] < 0.50 else 'Medium'
-                })
-        
-        # Sort by priority
-        missing.sort(key=lambda x: x['current_score'])
-        
-        return missing
-    
-    def _generate_recommendations(self,
-                                 match_result: Dict,
-                                 missing_skills: List[Dict]) -> List[str]:
-        """
-        Generate actionable recommendations
-        
-        Args:
-            match_result: Match result from scoring
-            missing_skills: List of missing skills
-            
-        Returns:
-            List of recommendation strings
-        """
-        recommendations = []
-        
-        overall_score = match_result['overall_score']
-        
-        # Overall assessment
-        if overall_score >= 0.85:
-            recommendations.append("✅ Excellent match - proceed with application confidently")
-        elif overall_score >= 0.70:
-            recommendations.append("✅ Good match - application recommended")
-            recommendations.append("💡 Consider highlighting relevant experience in cover letter")
-        elif overall_score >= 0.55:
-            recommendations.append("⚠️ Moderate match - address skill gaps before applying")
-        else:
-            recommendations.append("❌ Weak match - significant skill development needed")
-        
-        # Skill-specific recommendations
-        required_details = match_result['breakdown']['required_skills']['details']
-        matched_count = required_details['matched']
-        total_count = required_details['total']
-        
-        if matched_count < total_count:
-            gap = total_count - matched_count
-            recommendations.append(f"📚 Learn {gap} missing required skill(s) to improve match")
-        
-        # Top 3 missing skills to learn
-        if missing_skills:
-            top_missing = missing_skills[:3]
-            skills_list = ", ".join([s['skill'] for s in top_missing])
-            recommendations.append(f"🎯 Priority skills to learn: {skills_list}")
-        
-        # Experience recommendation
-        exp_details = match_result['breakdown']['experience']['details']
-        if not exp_details.get('meets_requirement', True):
-            cv_years = exp_details.get('cv_years', 0)
-            jd_years = exp_details.get('jd_required', '').split('+')[0]
-            
-            try:
-                gap_years = float(jd_years) - cv_years
-                if gap_years > 0:
-                    recommendations.append(f"⏳ Gain {gap_years:.0f} more year(s) of experience to meet requirement")
-            except:
-                pass
-        
-        return recommendations
-    
-    def _overall_assessment(self, match_result: Dict) -> str:
-        """
-        Generate overall assessment narrative
-        
-        Args:
-            match_result: Match result from scoring
-            
-        Returns:
-            Assessment text
-        """
-        score = match_result['overall_score']
-        interpretation = match_result['interpretation']
-        
-        required_pct = match_result['breakdown']['required_skills']['percentage']
-        exp_pct = match_result['breakdown']['experience']['percentage']
-        
-        assessment = f"{interpretation['level']} ({score * 100:.1f}%). "
-        assessment += f"Required skills match: {required_pct}. "
-        assessment += f"Experience alignment: {exp_pct}. "
-        assessment += interpretation['recommendation']
-        
-        return assessment
-    
-    def _generate_summary(self,
-                         match_result: Dict,
-                         missing_skills: List[Dict]) -> Dict:
-        """
-        Generate executive summary
-        
-        Args:
-            match_result: Match result
-            missing_skills: Missing skills list
-            
-        Returns:
-            Summary dict
-        """
-        required_details = match_result['breakdown']['required_skills']['details']
+            match_level = 'Low'
         
         return {
-            'overall_score': match_result['overall_percentage'],
-            'match_level': match_result['interpretation']['level'],
-            'skills_matched': f"{required_details['matched']}/{required_details['total']}",
-            'missing_count': len(missing_skills),
-            'top_strength': self._find_top_strength(required_details['skills']),
-            'top_weakness': missing_skills[0]['skill'] if missing_skills else 'None'
+            'summary': sections['summary'].strip(),
+            'detailed_explanation': llm_response,
+            'strengths': sections['strengths'][:5],
+            'gaps': sections['gaps'][:5],
+            'recommendations': sections['recommendations'][:7],
+            'match_level': match_level
         }
+
+
+# Test
+if __name__ == "__main__":
+    engine = ExplainabilityEngine()
     
-    def _find_top_strength(self, skill_scores: List[Dict]) -> str:
-        """Find the strongest skill"""
-        if not skill_scores:
-            return 'None'
-        
-        sorted_skills = sorted(skill_scores, key=lambda x: x['score'], reverse=True)
-        return sorted_skills[0]['skill'] if sorted_skills else 'None'
-
-
-# Convenience function
-def explain_match(cv_data: Dict,
-                 jd_data: Dict,
-                 match_result: Dict,
-                 embedding_engine: Optional[EmbeddingEngine] = None) -> Dict:
-    """Quick explain function"""
-    engine = ExplainabilityEngine(embedding_engine)
-    return engine.explain_match(cv_data, jd_data, match_result)
+    test_match = {
+        'overall_score': 0.72,
+        'breakdown': {
+            'required_skills': {
+                'details': {
+                    'matched_skills': ['Python', 'FastAPI', 'Docker'],
+                    'missing_skills': ['Kubernetes', 'AWS']
+                }
+            }
+        }
+    }
+    
+    test_cv = {'sections': {'experience': '5 years'}}
+    test_jd = {'sections': {'job_title': 'Senior Backend Engineer', 'experience': {'years': '5+'}}}
+    
+    explanation = engine.explain_match(test_match, test_cv, test_jd)
+    print(f"Summary: {explanation['summary']}")
+    print(f"\nStrengths: {len(explanation['strengths'])}")
+    print(f"Gaps: {len(explanation['gaps'])}")
+    print(f"Recommendations: {len(explanation['recommendations'])}")

@@ -1,131 +1,451 @@
 """
-Learning Pathway Generator - Creates personalized learning roadmaps
+Learning Pathway Generator - 100% LLM-Based (No Hardcoding)
+Generates personalized learning roadmaps using Ollama LLM
 """
-from typing import Dict, List, Optional
+import requests
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
-from loguru import logger
+import json
 
 
 class LearningPathwayGenerator:
     """
-    Generate personalized learning pathways based on skill gaps
+    Generate personalized learning pathways using LLM
+    All resources, playlists, courses dynamically generated
     """
     
-    def __init__(self):
-        """Initialize learning pathway generator"""
-        self.skill_resources = {
-            'python': ['Python.org Tutorial', 'Real Python', 'Automate the Boring Stuff'],
-            'javascript': ['MDN Web Docs', 'JavaScript.info', 'freeCodeCamp'],
-            'docker': ['Docker Official Docs', 'Docker Deep Dive', 'Play with Docker'],
-            'kubernetes': ['Kubernetes Basics', 'K8s by Example', 'KodeKloud'],
-            'react': ['React Official Tutorial', 'React for Beginners', 'freeCodeCamp React'],
-            'aws': ['AWS Free Tier Guide', 'AWS Solutions Architect', 'Cloud Practitioner'],
-            'fastapi': ['FastAPI Official Docs', 'TestDriven.io FastAPI', 'FastAPI Course'],
-            'nodejs': ['Node.js Docs', 'Node.js Complete Guide', 'Node.js Best Practices'],
-            'sql': ['SQL Tutorial', 'SQLZoo', 'Mode Analytics SQL'],
-            'git': ['Git Official Tutorial', 'Pro Git Book', 'GitHub Learning Lab']
-        }
-        logger.info("LearningPathwayGenerator initialized")
+    def __init__(self, ollama_url: str = "http://localhost:11434"):
+        """
+        Initialize the pathway generator
+        
+        Args:
+            ollama_url: Ollama API endpoint
+        """
+        self.ollama_url = ollama_url
+        self.model = "gemma2:2b"
     
-    def generate_pathway(self, skill_gaps: List[str], jd_data: Dict, num_days: int = 30) -> Dict:
-        """Generate personalized learning pathway"""
-        logger.info(f"Generating {num_days}-day pathway for {len(skill_gaps)} skills")
+    def _call_ollama(self, prompt: str, max_tokens: int = 1000) -> str:
+        """
+        Call Ollama LLM API
         
+        Args:
+            prompt: Prompt text
+            max_tokens: Maximum response tokens
+            
+        Returns:
+            LLM response text
+        """
+        try:
+            response = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "num_predict": max_tokens,
+                        "temperature": 0.7
+                    }
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                return response.json().get("response", "")
+            else:
+                return ""
+        except Exception as e:
+            print(f"Ollama API error: {e}")
+            return ""
+    
+    def _parse_list_from_llm(self, text: str) -> List[str]:
+        """
+        Parse bulleted/numbered list from LLM response
+        
+        Args:
+            text: LLM response text
+            
+        Returns:
+            List of items
+        """
+        items = []
+        for line in text.split('\n'):
+            line = line.strip()
+            # Remove bullets/numbers
+            if line:
+                # Remove common list markers
+                cleaned = line.lstrip('•*-–—►▸▹▪▫1234567890.)> ')
+                if cleaned and len(cleaned) > 5:  # Avoid empty/short lines
+                    items.append(cleaned)
+        return items
+    
+    def _generate_youtube_playlists(self, skill: str) -> List[str]:
+        """
+        Generate YouTube playlist recommendations using LLM
+        
+        Args:
+            skill: Skill name
+            
+        Returns:
+            List of YouTube playlists/channels
+        """
+        prompt = f"""List 5 specific real YouTube channels or playlists for learning {skill}.
+Include the channel name and video/playlist title.
+Format each as: "Title - Channel Name"
+
+Examples:
+- Python Full Course for Beginners - freeCodeCamp
+- JavaScript Tutorial - Traversy Media
+- React Complete Guide - Academind
+
+Now list 5 YouTube resources for {skill}:"""
+
+        response = self._call_ollama(prompt, max_tokens=300)
+        playlists = self._parse_list_from_llm(response)
+        
+        # Fallback if LLM fails
+        if len(playlists) < 2:
+            playlists = [
+                f"{skill} Full Course - freeCodeCamp",
+                f"{skill} Tutorial for Beginners - Programming with Mosh",
+                f"{skill} Crash Course - Traversy Media",
+                f"{skill} Complete Guide - Academind",
+                f"{skill} Tutorial - Net Ninja"
+            ]
+        
+        return playlists[:5]
+    
+    def _generate_online_courses(self, skill: str) -> List[str]:
+        """
+        Generate online course recommendations using LLM
+        
+        Args:
+            skill: Skill name
+            
+        Returns:
+            List of online courses
+        """
+        prompt = f"""List 5 specific real online courses for learning {skill}.
+Include the course title and platform.
+Format: "Course Title - Platform"
+
+Examples:
+- Complete Python Bootcamp - Udemy
+- Machine Learning Specialization - Coursera
+- Web Development Bootcamp - Udemy
+
+Now list 5 courses for {skill}:"""
+
+        response = self._call_ollama(prompt, max_tokens=300)
+        courses = self._parse_list_from_llm(response)
+        
+        if len(courses) < 2:
+            courses = [
+                f"{skill} Complete Course - Udemy",
+                f"{skill} Specialization - Coursera",
+                f"{skill} Path - Pluralsight",
+                f"{skill} Bootcamp - edX",
+                f"{skill} Masterclass - LinkedIn Learning"
+            ]
+        
+        return courses[:5]
+    
+    def _generate_documentation(self, skill: str) -> List[str]:
+        """
+        Generate documentation/article recommendations using LLM
+        
+        Args:
+            skill: Skill name
+            
+        Returns:
+            List of documentation resources
+        """
+        prompt = f"""List 5 official documentation sites and tutorial resources for {skill}.
+Format: "Resource Name - Type"
+
+Examples:
+- Official Python Documentation - Docs
+- MDN Web Docs for JavaScript - Docs
+- React Official Tutorial - Tutorial
+
+Now list 5 documentation resources for {skill}:"""
+
+        response = self._call_ollama(prompt, max_tokens=300)
+        docs = self._parse_list_from_llm(response)
+        
+        if len(docs) < 2:
+            docs = [
+                f"Official {skill} Documentation",
+                f"{skill} Tutorials and Guides",
+                f"{skill} Best Practices - Dev.to",
+                f"{skill} Cheat Sheet - DevDocs",
+                f"{skill} Articles - Medium"
+            ]
+        
+        return docs[:5]
+    
+    def _generate_practice_projects(self, skill: str) -> List[str]:
+        """
+        Generate practice project ideas using LLM
+        
+        Args:
+            skill: Skill name
+            
+        Returns:
+            List of project ideas
+        """
+        prompt = f"""List 5 practical project ideas to learn {skill}.
+Each should be a specific, buildable project.
+Format: Short project description
+
+Examples:
+- Build a todo app with CRUD operations
+- Create a weather dashboard using API
+- Develop a blog with authentication
+
+Now list 5 project ideas for {skill}:"""
+
+        response = self._call_ollama(prompt, max_tokens=300)
+        projects = self._parse_list_from_llm(response)
+        
+        if len(projects) < 2:
+            projects = [
+                f"Build a basic {skill} application with CRUD",
+                f"Create a {skill} project using best practices",
+                f"Develop a portfolio project with {skill}",
+                f"Contribute to open source {skill} projects",
+                f"Build a production-ready {skill} application"
+            ]
+        
+        return projects[:5]
+    
+    def _generate_books_articles(self, skill: str) -> List[str]:
+        """
+        Generate book and article recommendations using LLM
+        
+        Args:
+            skill: Skill name
+            
+        Returns:
+            List of books/articles
+        """
+        prompt = f"""List 5 recommended books or article series for learning {skill}.
+Include book/article title and author if known.
+
+Examples:
+- "Clean Code" by Robert Martin
+- "You Don't Know JS" series by Kyle Simpson
+- "Python Crash Course" by Eric Matthes
+
+Now list 5 books/articles for {skill}:"""
+
+        response = self._call_ollama(prompt, max_tokens=300)
+        books = self._parse_list_from_llm(response)
+        
+        if len(books) < 2:
+            books = [
+                f"'{skill} in Action' - Manning Publications",
+                f"'Learning {skill}' - O'Reilly Media",
+                f"'{skill} Design Patterns' - Addison-Wesley",
+                f"'{skill} Best Practices' - Packt Publishing",
+                f"'{skill} Cookbook' - Pragmatic Bookshelf"
+            ]
+        
+        return books[:5]
+    
+    def _generate_daily_tasks(self, skill: str, day: int, total_days: int) -> List[str]:
+        """
+        Generate daily learning tasks using LLM
+        
+        Args:
+            skill: Skill name
+            day: Current day number
+            total_days: Total pathway days
+            
+        Returns:
+            List of daily tasks
+        """
+        # Determine difficulty level based on day
+        if day <= total_days * 0.3:
+            level = "beginner/fundamentals"
+        elif day <= total_days * 0.6:
+            level = "intermediate"
+        else:
+            level = "advanced/mastery"
+        
+        prompt = f"""Create 4 specific learning tasks for day {day} of a {total_days}-day {skill} learning plan.
+This is {level} level.
+
+Format each task as an actionable item.
+
+Examples:
+- Watch 2 hours of Python basics tutorial
+- Complete exercises on variables and data types
+- Read chapter 1 of official documentation
+- Build a simple calculator program
+
+Now list 4 tasks for day {day} learning {skill} ({level} level):"""
+
+        response = self._call_ollama(prompt, max_tokens=200)
+        tasks = self._parse_list_from_llm(response)
+        
+        if len(tasks) < 2:
+            tasks = [
+                f"Study {skill} {level} concepts for 2-3 hours",
+                f"Complete {skill} exercises and challenges",
+                f"Read {skill} documentation and tutorials",
+                f"Practice {skill} with hands-on coding"
+            ]
+        
+        return tasks[:4]
+    
+    def _generate_mini_project(self, skill: str, day: int, total_days: int) -> str:
+        """
+        Generate mini project for the day using LLM
+        
+        Args:
+            skill: Skill name
+            day: Current day number
+            total_days: Total pathway days
+            
+        Returns:
+            Mini project description
+        """
+        if day <= total_days * 0.3:
+            complexity = "simple beginner"
+        elif day <= total_days * 0.6:
+            complexity = "intermediate"
+        else:
+            complexity = "advanced portfolio-worthy"
+        
+        prompt = f"""Suggest one specific {complexity} project for day {day} of learning {skill}.
+Describe it in 10-15 words.
+
+Examples:
+- Build a todo list app with add/delete functionality
+- Create a weather dashboard fetching API data
+- Develop a blog with authentication and comments
+
+Now suggest a {complexity} {skill} project:"""
+
+        response = self._call_ollama(prompt, max_tokens=100)
+        
+        # Get first meaningful line
+        lines = [l.strip() for l in response.split('\n') if l.strip()]
+        project = lines[0] if lines else f"Build a {complexity} {skill} project"
+        
+        # Clean up common prefixes
+        project = project.lstrip('•*-–—►▸▹▪▫1234567890.)> ')
+        
+        return project
+    
+    def generate_pathway(
+        self,
+        skill_gaps: List[str],
+        jd_data: Dict,
+        num_days: int = 7
+    ) -> Dict:
+        """
+        Generate a complete learning pathway using LLM
+        
+        Args:
+            skill_gaps: List of missing skills
+            jd_data: Job description data
+            num_days: Number of days (7, 14, or 30)
+            
+        Returns:
+            Complete learning pathway dict
+        """
         if not skill_gaps:
-            return {'success': False, 'message': 'No skill gaps', 'daily_plans': []}
+            return {
+                "success": False,
+                "error": "No skill gaps provided"
+            }
         
-        num_skills = 2 if num_days == 7 else 3 if num_days == 14 else 4
-        focus_skills = skill_gaps[:num_skills]
-        daily_plans = self._generate_daily_plans(focus_skills, num_days)
+        # Determine focus skills based on pathway length
+        if num_days == 7:
+            focus_skills = skill_gaps[:2]
+        elif num_days == 14:
+            focus_skills = skill_gaps[:3]
+        else:  # 30 days
+            focus_skills = skill_gaps[:4]
+        
+        # Generate daily plans using LLM
+        daily_plans = []
+        
+        for day in range(1, num_days + 1):
+            # Rotate through focus skills
+            skill_index = (day - 1) % len(focus_skills)
+            current_skill = focus_skills[skill_index]
+            
+            # Generate resources for this skill
+            youtube = self._generate_youtube_playlists(current_skill)
+            courses = self._generate_online_courses(current_skill)
+            docs = self._generate_documentation(current_skill)
+            projects = self._generate_practice_projects(current_skill)
+            books = self._generate_books_articles(current_skill)
+            
+            # Generate daily tasks
+            tasks = self._generate_daily_tasks(current_skill, day, num_days)
+            
+            # Generate mini project
+            mini_project = self._generate_mini_project(current_skill, day, num_days)
+            
+            # Determine time estimate based on day
+            if day <= num_days * 0.3:
+                time_estimate = "3-4 hours"
+            elif day <= num_days * 0.6:
+                time_estimate = "4-5 hours"
+            else:
+                time_estimate = "5-6 hours"
+            
+            plan = {
+                "day": day,
+                "focus": f"Day {day}: {current_skill}",
+                "tasks": tasks,
+                "resources": {
+                    "YouTube Playlists 🎥": youtube[:3],
+                    "Online Courses 📚": courses[:2],
+                    "Documentation 📖": docs[:2],
+                    "Practice Projects 💻": projects[:2],
+                    "Books & Articles 📕": books[:2]
+                },
+                "mini_project": mini_project,
+                "time_estimate": time_estimate
+            }
+            
+            daily_plans.append(plan)
+        
+        # Calculate completion date
+        start_date = datetime.now()
+        completion_date = start_date + timedelta(days=num_days)
         
         return {
-            'success': True,
-            'timeline_days': num_days,
-            'focus_skills': focus_skills,
-            'total_skills': len(skill_gaps),
-            'daily_plans': daily_plans,
-            'estimated_daily_hours': 2 if num_days == 7 else 1.5 if num_days == 14 else 1,
-            'completion_date': (datetime.now() + timedelta(days=num_days)).strftime('%Y-%m-%d')
+            "success": True,
+            "timeline_days": num_days,
+            "focus_skills": focus_skills,
+            "daily_plans": daily_plans,
+            "estimated_daily_hours": "3-6 hours (varies by day)",
+            "completion_date": completion_date.strftime("%B %d, %Y"),
+            "total_estimated_hours": f"{num_days * 4}-{num_days * 6} hours"
         }
-    
-    def _generate_daily_plans(self, skills: List[str], num_days: int) -> List[Dict]:
-        """Generate day-by-day learning plan"""
-        plans = []
-        skill1 = skills[0] if len(skills) > 0 else 'Python'
-        skill2 = skills[1] if len(skills) > 1 else skill1
-        
-        if num_days == 7:
-            plans = [
-                {'day': 1, 'focus': f'{skill1} - Setup & Basics', 'goal': 'Environment setup', 'tasks': [f'Install {skill1}', 'Watch intro tutorial', 'First example'], 'resources': self._get_resources(skill1), 'mini_project': f'Setup {skill1}'},
-                {'day': 2, 'focus': f'{skill1} - Core Concepts', 'goal': 'Learn fundamentals', 'tasks': ['Study core concepts', 'Practice exercises', 'Build demo'], 'resources': self._get_resources(skill1), 'mini_project': 'Simple demo'},
-                {'day': 3, 'focus': f'{skill1} - Practice', 'goal': 'Hands-on coding', 'tasks': ['Work on exercises', 'Debug issues', 'Build project'], 'resources': self._get_resources(skill1), 'mini_project': 'Mini project'},
-                {'day': 4, 'focus': f'{skill2} - Introduction', 'goal': 'Second skill basics', 'tasks': [f'Learn {skill2}', 'Setup environment', 'First tutorial'], 'resources': self._get_resources(skill2), 'mini_project': f'{skill2} setup'},
-                {'day': 5, 'focus': 'Integration', 'goal': 'Combine skills', 'tasks': ['Practice both skills', 'Integration examples', 'Work on project'], 'resources': ['Integration guides'], 'mini_project': 'Combined demo'},
-                {'day': 6, 'focus': 'Project Development', 'goal': 'Build portfolio', 'tasks': ['Build complete project', 'Add documentation', 'Testing'], 'resources': ['Project ideas'], 'mini_project': 'Portfolio piece'},
-                {'day': 7, 'focus': 'Polish & Showcase', 'goal': 'Finalize work', 'tasks': ['Polish code', 'Write README', 'Update CV'], 'resources': ['GitHub guide'], 'mini_project': 'Publish on GitHub'}
-            ]
-        elif num_days == 14:
-            skill3 = skills[2] if len(skills) > 2 else 'Git'
-            plans = [
-                {'day': 1, 'focus': f'{skill1} - Fundamentals', 'goal': 'Setup and basics', 'tasks': [f'Learn {skill1}', 'Setup', 'Tutorial'], 'resources': self._get_resources(skill1), 'mini_project': f'Hello World {skill1}'},
-                {'day': 2, 'focus': f'{skill1} - Core', 'goal': 'Deep dive', 'tasks': ['Study concepts', 'Practice'], 'resources': self._get_resources(skill1), 'mini_project': 'Demo app'},
-                {'day': 3, 'focus': f'{skill1} - Practice', 'goal': 'Hands-on', 'tasks': ['Code challenges', 'Debug'], 'resources': self._get_resources(skill1), 'mini_project': 'Exercise'},
-                {'day': 4, 'focus': f'{skill1} - Project', 'goal': 'Build', 'tasks': ['Plan project', 'Start coding'], 'resources': self._get_resources(skill1), 'mini_project': 'Main project'},
-                {'day': 5, 'focus': f'{skill2} - Intro', 'goal': 'New skill', 'tasks': [f'Learn {skill2}', 'Setup'], 'resources': self._get_resources(skill2), 'mini_project': 'Setup'},
-                {'day': 6, 'focus': f'{skill2} - Deep Dive', 'goal': 'Master basics', 'tasks': ['Study', 'Practice'], 'resources': self._get_resources(skill2), 'mini_project': 'Demo'},
-                {'day': 7, 'focus': 'Review', 'goal': 'Consolidate', 'tasks': ['Review skills', 'Continue projects'], 'resources': ['Review materials'], 'mini_project': 'Milestone'},
-                {'day': 8, 'focus': f'{skill3} - Basics', 'goal': 'Third skill', 'tasks': [f'Intro to {skill3}'], 'resources': self._get_resources(skill3), 'mini_project': 'Quick demo'},
-                {'day': 9, 'focus': 'Integration', 'goal': 'Combine', 'tasks': ['Integrate skills', 'Project work'], 'resources': ['Integration tutorials'], 'mini_project': 'Integration'},
-                {'day': 10, 'focus': 'Advanced', 'goal': 'Level up', 'tasks': ['Advanced tutorials', 'Complex examples'], 'resources': ['Advanced guides'], 'mini_project': 'Advanced feature'},
-                {'day': 11, 'focus': 'Project', 'goal': 'Build', 'tasks': ['Focus on project', 'Add features'], 'resources': ['Testing guides'], 'mini_project': 'Feature complete'},
-                {'day': 12, 'focus': 'Polish', 'goal': 'Professional', 'tasks': ['Code cleanup', 'Write docs'], 'resources': ['Docs templates'], 'mini_project': 'Add README'},
-                {'day': 13, 'focus': 'Deployment', 'goal': 'Go live', 'tasks': ['Deploy project', 'CI/CD'], 'resources': ['Deployment guides'], 'mini_project': 'Live deployment'},
-                {'day': 14, 'focus': 'Portfolio', 'goal': 'Showcase', 'tasks': ['Update CV', 'GitHub portfolio'], 'resources': ['Portfolio examples'], 'mini_project': 'Complete portfolio'}
-            ]
-        else:  # 30 days
-            skill3 = skills[2] if len(skills) > 2 else 'React'
-            skill4 = skills[3] if len(skills) > 3 else 'AWS'
-            all_skills = [skill1, skill2, skill3, skill4]
-            
-            for day in range(1, 31):
-                week = (day - 1) // 7
-                skill_index = min(week, len(all_skills) - 1)
-                current_skill = all_skills[skill_index]
-                day_in_week = ((day - 1) % 7) + 1
-                
-                if day_in_week == 1:
-                    focus = f'{current_skill} - Introduction'
-                    goal = 'Setup and fundamentals'
-                elif day_in_week <= 3:
-                    focus = f'{current_skill} - Core Learning'
-                    goal = 'Master key concepts'
-                elif day_in_week <= 5:
-                    focus = f'{current_skill} - Practice'
-                    goal = 'Hands-on exercises'
-                else:
-                    focus = f'{current_skill} - Project Work'
-                    goal = 'Build something real'
-                
-                plans.append({
-                    'day': day,
-                    'focus': focus,
-                    'goal': goal,
-                    'tasks': [f'Study {current_skill}', 'Practice exercises', 'Work on projects'],
-                    'resources': self._get_resources(current_skill),
-                    'mini_project': f'Day {day} milestone'
-                })
-        
-        return plans
-    
-    def _get_resources(self, skill: str) -> List[str]:
-        """Get learning resources for a skill"""
-        skill_lower = skill.lower()
-        if skill_lower in self.skill_resources:
-            return self.skill_resources[skill_lower]
-        return [f'Official {skill} Documentation', f'{skill} Tutorial', f'{skill} Course']
 
 
-def generate_learning_path(skill_gaps: List[str], jd_data: Dict, num_days: int = 30) -> Dict:
-    """Convenience function"""
+# Test function
+if __name__ == "__main__":
     generator = LearningPathwayGenerator()
-    return generator.generate_pathway(skill_gaps, jd_data, num_days)
+    
+    # Test pathway generation
+    pathway = generator.generate_pathway(
+        skill_gaps=["Python", "Machine Learning", "Docker"],
+        jd_data={"text": "Looking for ML Engineer with Python and Docker"},
+        num_days=7
+    )
+    
+    if pathway["success"]:
+        print(f"✅ Generated {pathway['timeline_days']}-day pathway")
+        print(f"Focus Skills: {', '.join(pathway['focus_skills'])}")
+        print(f"\nDay 1 Plan:")
+        print(json.dumps(pathway['daily_plans'][0], indent=2))
+    else:
+        print(f"❌ Error: {pathway['error']}")

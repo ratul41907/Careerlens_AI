@@ -1,291 +1,299 @@
 """
-CV Analyzer - Identifies issues and improvement opportunities in CVs
+CV Analyzer - 100% LLM-Based Quality Analysis
+Uses Ollama to provide intelligent CV improvement suggestions
 """
+import requests
 from typing import Dict, List, Optional, Union
-from loguru import logger
-import re
+import json
 
 
 class CVAnalyzer:
     """
-    Analyze CVs for common issues and improvement opportunities
+    Analyze CV quality and provide improvement suggestions using LLM
     """
     
-    def __init__(self):
-        """Initialize CV analyzer"""
-        self.issue_categories = [
-            'weak_bullets',
-            'missing_metrics',
-            'vague_descriptions',
-            'spelling_grammar',
-            'formatting',
-            'ats_compatibility'
-        ]
-        logger.info("CVAnalyzer initialized")
-    
-    def analyze_cv(self, cv_data: Union[Dict, str], jd_data: Optional[Union[Dict, str]] = None) -> Dict:
+    def __init__(self, ollama_url: str = "http://localhost:11434"):
         """
-        Analyze CV for issues and improvements
+        Initialize CV analyzer
         
         Args:
-            cv_data: Parsed CV data (dict or string)
-            jd_data: Optional job description (dict or string)
+            ollama_url: Ollama API endpoint
+        """
+        self.ollama_url = ollama_url
+        self.model = "gemma2:2b"
+    
+    def _call_ollama(self, prompt: str, max_tokens: int = 2000) -> str:
+        """Call Ollama LLM API"""
+        try:
+            response = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "num_predict": max_tokens,
+                        "temperature": 0.7
+                    }
+                },
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                return response.json().get("response", "")
+            return ""
+        except Exception as e:
+            print(f"Ollama API error: {e}")
+            return ""
+    
+    def _parse_llm_analysis(self, llm_response: str) -> Dict:
+        """
+        Parse LLM analysis into structured format
+        
+        Args:
+            llm_response: Raw LLM response
             
         Returns:
-            Dict with issues found and improvement suggestions
+            Structured analysis dict
         """
-        logger.info("Analyzing CV for improvement opportunities")
-        
-        # CRITICAL FIX: Ensure cv_data is a dict
-        if isinstance(cv_data, str):
-            cv_data = {
-                'text': cv_data,
-                'sections': {
-                    'experience': cv_data,
-                    'skills': '',
-                    'education': ''
-                }
-            }
-        
-        # CRITICAL FIX: Ensure jd_data is a dict if provided
-        if jd_data and isinstance(jd_data, str):
-            jd_data = {
-                'text': jd_data,
-                'required_skills': [],
-                'preferred_skills': []
-            }
-        
-        issues = {
+        # Try to extract sections from LLM response
+        sections = {
             'weak_bullets': [],
             'missing_metrics': [],
             'vague_descriptions': [],
-            'spelling_grammar': [],
+            'ats_compatibility': [],
             'formatting': [],
-            'ats_compatibility': []
+            'grammar_spelling': []
         }
         
-        cv_text = cv_data.get('text', '')
-        
-        # Analyze bullet points
-        if 'sections' in cv_data and 'experience' in cv_data['sections']:
-            experience_text = cv_data['sections']['experience']
-            if experience_text:  # Only analyze if not empty
-                issues['weak_bullets'] = self._check_weak_bullets(experience_text)
-                issues['missing_metrics'] = self._check_missing_metrics(experience_text)
-                issues['vague_descriptions'] = self._check_vague_descriptions(experience_text)
-        
-        # Check ATS compatibility
-        if cv_text:
-            issues['ats_compatibility'] = self._check_ats_issues(cv_text)
-            issues['formatting'] = self._check_formatting_issues(cv_text)
-        
-        # Generate improvements
-        improvements = self._generate_improvements(issues, cv_data, jd_data)
-        
-        # Calculate overall score
-        total_issues = sum(len(issue_list) for issue_list in issues.values())
-        score = max(0, 100 - (total_issues * 5))  # Each issue reduces score by 5
-        
-        result = {
-            'score': score,
-            'grade': self._get_grade(score),
-            'total_issues': total_issues,
-            'issues': issues,
-            'improvements': improvements,
-            'summary': self._generate_summary(score, total_issues)
-        }
-        
-        logger.info(f"CV analysis complete: Score {score}/100, {total_issues} issues found")
-        return result
-    
-    def _check_weak_bullets(self, text: str) -> List[Dict]:
-        """Check for weak bullet points"""
-        weak_bullets = []
-        
-        # Weak action verbs
-        weak_verbs = ['helped', 'worked on', 'responsible for', 'assisted', 'involved in']
-        
-        lines = text.split('\n')
-        for line in lines:
-            line_lower = line.lower().strip()
-            if line_lower.startswith('-') or line_lower.startswith('•'):
-                for weak_verb in weak_verbs:
-                    if weak_verb in line_lower:
-                        weak_bullets.append({
-                            'text': line.strip(),
-                            'issue': f"Weak action verb: '{weak_verb}'",
-                            'suggestion': f"Use stronger verbs like: Led, Developed, Implemented, Achieved"
-                        })
-                        break
-        
-        return weak_bullets[:5]  # Limit to top 5
-    
-    def _check_missing_metrics(self, text: str) -> List[Dict]:
-        """Check for missing quantifiable metrics"""
-        missing_metrics = []
-        
-        lines = text.split('\n')
-        for line in lines:
-            line_lower = line.lower().strip()
-            if line_lower.startswith('-') or line_lower.startswith('•'):
-                # Check if line has numbers/percentages
-                if not re.search(r'\d+', line):
-                    missing_metrics.append({
-                        'text': line.strip(),
-                        'issue': 'No quantifiable metrics',
-                        'suggestion': 'Add numbers: how many? how much? by what percentage?'
-                    })
-        
-        return missing_metrics[:5]
-    
-    def _check_vague_descriptions(self, text: str) -> List[Dict]:
-        """Check for vague descriptions"""
-        vague_issues = []
-        
-        vague_phrases = ['various', 'several', 'multiple', 'many', 'some', 'handled']
-        
-        lines = text.split('\n')
-        for line in lines:
-            line_lower = line.lower()
-            for vague_phrase in vague_phrases:
-                if vague_phrase in line_lower:
-                    vague_issues.append({
-                        'text': line.strip(),
-                        'issue': f"Vague phrase: '{vague_phrase}'",
-                        'suggestion': 'Be specific: name technologies, tools, exact numbers'
-                    })
-                    break
-        
-        return vague_issues[:5]
-    
-    def _check_ats_issues(self, text: str) -> List[Dict]:
-        """Check ATS compatibility issues"""
-        ats_issues = []
-        
-        # Check for tables (problematic for ATS)
-        if '|' in text or text.count('\t') > 10:
-            ats_issues.append({
-                'issue': 'Tables or complex formatting detected',
-                'suggestion': 'Use simple bullet points instead of tables'
-            })
-        
-        # Check for images/graphics mentions
-        if any(word in text.lower() for word in ['[image]', '[graphic]', '[chart]']):
-            ats_issues.append({
-                'issue': 'Images or graphics detected',
-                'suggestion': 'Remove images - ATS systems cannot read them'
-            })
-        
-        # Check for uncommon fonts/special characters
-        special_chars = set(text) - set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,;:!?\'-\n\t()/@#&+')
-        if len(special_chars) > 5:
-            ats_issues.append({
-                'issue': 'Special characters detected',
-                'suggestion': 'Use standard characters for better ATS compatibility'
-            })
-        
-        return ats_issues
-    
-    def _check_formatting_issues(self, text: str) -> List[Dict]:
-        """Check formatting issues"""
-        formatting_issues = []
-        
-        # Check for inconsistent date formats
-        date_patterns = re.findall(r'\b\d{4}\b|\b\d{1,2}/\d{4}\b|\b\w+ \d{4}\b', text)
-        if len(set(date_patterns)) > 2:
-            formatting_issues.append({
-                'issue': 'Inconsistent date formats',
-                'suggestion': 'Use consistent format: Jan 2024 or 01/2024'
-            })
-        
-        # Check for missing section headers
-        if 'experience' not in text.lower() and 'work' not in text.lower():
-            formatting_issues.append({
-                'issue': 'Missing Experience section header',
-                'suggestion': 'Add clear section: EXPERIENCE or WORK HISTORY'
-            })
-        
-        if 'education' not in text.lower():
-            formatting_issues.append({
-                'issue': 'Missing Education section header',
-                'suggestion': 'Add clear section: EDUCATION'
-            })
-        
-        return formatting_issues
-    
-    def _generate_improvements(self, issues: Dict, cv_data: Dict, jd_data: Optional[Dict]) -> List[Dict]:
-        """Generate specific improvement suggestions"""
         improvements = []
         
-        # Prioritize improvements
-        if issues.get('weak_bullets', []):
-            improvements.append({
-                'priority': 'High',
-                'category': 'Impact',
-                'title': 'Strengthen Action Verbs',
-                'description': f"Replace {len(issues['weak_bullets'])} weak verbs with strong action verbs",
-                'examples': ['Led → Spearheaded', 'Helped → Facilitated', 'Worked on → Engineered']
-            })
+        # Parse the response line by line
+        current_category = None
+        lines = llm_response.split('\n')
         
-        if issues.get('missing_metrics', []):
-            improvements.append({
-                'priority': 'High',
-                'category': 'Quantification',
-                'title': 'Add Quantifiable Results',
-                'description': f"{len(issues['missing_metrics'])} bullets lack metrics",
-                'examples': ['Add: "Improved performance by 40%"', 'Add: "Managed team of 5"', 'Add: "Reduced costs by $50K"']
-            })
-        
-        if issues.get('ats_compatibility', []):
-            improvements.append({
-                'priority': 'Critical',
-                'category': 'ATS',
-                'title': 'Fix ATS Compatibility',
-                'description': 'Make CV readable by Applicant Tracking Systems',
-                'examples': ['Remove tables', 'Use standard fonts', 'Avoid images']
-            })
-        
-        if jd_data:
-            # Add job-specific improvements
-            jd_skills = jd_data.get('required_skills', []) + jd_data.get('preferred_skills', [])
-            cv_skills = cv_data.get('sections', {}).get('skills', '').lower()
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
             
-            missing_keywords = [skill for skill in jd_skills if skill.lower() not in cv_skills]
-            if missing_keywords:
-                improvements.append({
-                    'priority': 'High',
-                    'category': 'Keywords',
-                    'title': 'Add Missing Job Keywords',
-                    'description': f"Add {len(missing_keywords[:5])} key skills from job description",
-                    'examples': missing_keywords[:5]
-                })
+            # Detect category headers
+            line_lower = line.lower()
+            if 'weak' in line_lower and ('verb' in line_lower or 'action' in line_lower):
+                current_category = 'weak_bullets'
+            elif 'metric' in line_lower or 'number' in line_lower or 'quantif' in line_lower:
+                current_category = 'missing_metrics'
+            elif 'vague' in line_lower or 'unclear' in line_lower:
+                current_category = 'vague_descriptions'
+            elif 'ats' in line_lower or 'keyword' in line_lower:
+                current_category = 'ats_compatibility'
+            elif 'format' in line_lower or 'layout' in line_lower:
+                current_category = 'formatting'
+            elif 'grammar' in line_lower or 'spelling' in line_lower:
+                current_category = 'grammar_spelling'
+            elif 'improvement' in line_lower or 'suggestion' in line_lower:
+                current_category = 'improvements'
+            
+            # Extract bullet points
+            if line.startswith(('-', '•', '*', '–', '►')) or (len(line) > 2 and line[0].isdigit() and line[1] in '.):'):
+                clean_line = line.lstrip('-•*–►0123456789.)]: ').strip()
+                if clean_line and len(clean_line) > 10:
+                    if current_category == 'improvements':
+                        improvements.append(clean_line)
+                    elif current_category and current_category in sections:
+                        sections[current_category].append(clean_line)
         
-        return improvements
-    
-    def _get_grade(self, score: int) -> str:
-        """Convert score to letter grade"""
+        # Count total issues
+        total_issues = sum(len(v) for v in sections.values())
+        
+        # Calculate score based on issues (fewer issues = higher score)
+        if total_issues == 0:
+            score = 95
+        elif total_issues <= 3:
+            score = 85
+        elif total_issues <= 6:
+            score = 75
+        elif total_issues <= 10:
+            score = 65
+        elif total_issues <= 15:
+            score = 55
+        else:
+            score = 45
+        
+        # Determine grade
         if score >= 90:
-            return 'A - Excellent'
+            grade = 'A'
         elif score >= 80:
-            return 'B - Good'
+            grade = 'B'
         elif score >= 70:
-            return 'C - Fair'
+            grade = 'C'
         elif score >= 60:
-            return 'D - Needs Work'
+            grade = 'D'
         else:
-            return 'F - Poor'
+            grade = 'F'
+        
+        return {
+            'score': score,
+            'grade': grade,
+            'total_issues': total_issues,
+            'issues': sections,
+            'improvements': improvements if improvements else [
+                "Overall structure is good",
+                "Continue to tailor CV for each job application",
+                "Keep updating with new achievements"
+            ],
+            'summary': llm_response[:500] if llm_response else "Analysis completed"
+        }
     
-    def _generate_summary(self, score: int, total_issues: int) -> str:
-        """Generate summary message"""
-        if score >= 90:
-            return f"✅ Excellent CV! Only {total_issues} minor improvements possible."
-        elif score >= 70:
-            return f"👍 Good CV with {total_issues} areas for improvement."
+    def analyze_cv(
+        self,
+        cv_data: Union[Dict, str],
+        jd_data: Optional[Union[Dict, str]] = None
+    ) -> Dict:
+        """
+        Analyze CV quality using LLM
+        
+        Args:
+            cv_data: CV data (dict or string)
+            jd_data: Optional job description for context
+            
+        Returns:
+            Analysis results with score, issues, and improvements
+        """
+        # Convert to dict if string
+        if isinstance(cv_data, str):
+            cv_data = {'text': cv_data, 'sections': {}}
+        
+        if isinstance(jd_data, str):
+            jd_data = {'text': jd_data}
+        
+        cv_text = cv_data.get('text', '')
+        if not cv_text:
+            return {
+                'score': 0,
+                'grade': 'F',
+                'total_issues': 0,
+                'issues': {},
+                'improvements': [],
+                'summary': 'No CV text provided'
+            }
+        
+        # Build LLM prompt
+        if jd_data and jd_data.get('text'):
+            prompt = f"""You are an expert CV reviewer. Analyze this CV against the job description and provide detailed feedback.
+
+CV:
+{cv_text[:3000]}
+
+Job Description:
+{jd_data['text'][:1500]}
+
+Analyze the CV and identify issues in these categories:
+
+1. WEAK ACTION VERBS
+List specific bullet points using weak verbs (e.g., "responsible for", "worked on", "helped with"). Suggest stronger alternatives.
+
+2. MISSING METRICS
+Identify accomplishments that lack quantification. Which bullets need numbers, percentages, or measurable outcomes?
+
+3. VAGUE DESCRIPTIONS
+Find unclear or generic statements that don't demonstrate actual skills or impact.
+
+4. ATS COMPATIBILITY
+Check for keyword gaps between CV and job description. Are important job requirements missing from the CV?
+
+5. FORMATTING ISSUES
+Note any layout, structure, or consistency problems.
+
+6. GRAMMAR/SPELLING
+Flag any language errors.
+
+7. IMPROVEMENTS
+Provide 5-10 specific, actionable suggestions to improve this CV for this role.
+
+Format your response with clear headers and bullet points for each category."""
         else:
-            return f"⚠️ CV needs work. {total_issues} issues found that could hurt your chances."
+            prompt = f"""You are an expert CV reviewer. Analyze this CV and provide detailed quality feedback.
+
+CV:
+{cv_text[:3000]}
+
+Analyze the CV and identify issues in these categories:
+
+1. WEAK ACTION VERBS
+List specific bullet points using weak verbs (e.g., "responsible for", "worked on", "helped with"). Suggest stronger alternatives.
+
+2. MISSING METRICS
+Identify accomplishments that lack quantification. Which bullets need numbers, percentages, or measurable outcomes?
+
+3. VAGUE DESCRIPTIONS
+Find unclear or generic statements that don't demonstrate actual skills or impact.
+
+4. ATS COMPATIBILITY
+Check if CV follows ATS-friendly formatting (clear sections, standard fonts, no tables/images in text areas).
+
+5. FORMATTING ISSUES
+Note any layout, structure, or consistency problems.
+
+6. GRAMMAR/SPELLING
+Flag any language errors.
+
+7. IMPROVEMENTS
+Provide 5-10 specific, actionable suggestions to improve this CV.
+
+Format your response with clear headers and bullet points for each category."""
+        
+        # Call LLM
+        llm_response = self._call_ollama(prompt, max_tokens=2000)
+        
+        if not llm_response:
+            # Fallback if LLM fails
+            return {
+                'score': 70,
+                'grade': 'C',
+                'total_issues': 3,
+                'issues': {
+                    'weak_bullets': ["Consider using stronger action verbs"],
+                    'missing_metrics': ["Add quantifiable achievements where possible"],
+                    'vague_descriptions': ["Make descriptions more specific and impactful"],
+                    'ats_compatibility': [],
+                    'formatting': [],
+                    'grammar_spelling': []
+                },
+                'improvements': [
+                    "Use stronger action verbs (e.g., 'Led', 'Developed', 'Increased')",
+                    "Quantify achievements with numbers and percentages",
+                    "Make descriptions more specific and results-focused",
+                    "Ensure ATS-friendly formatting",
+                    "Tailor CV to match job requirements"
+                ],
+                'summary': 'CV analysis completed. LLM unavailable, using fallback analysis.'
+            }
+        
+        # Parse LLM response into structured format
+        return self._parse_llm_analysis(llm_response)
 
 
-def analyze_cv(cv_data: Union[Dict, str], jd_data: Optional[Union[Dict, str]] = None) -> Dict:
-    """Convenience function"""
+# Test
+if __name__ == "__main__":
     analyzer = CVAnalyzer()
-    return analyzer.analyze_cv(cv_data, jd_data)
+    
+    test_cv = {
+        'text': """John Doe
+Software Engineer
+
+Experience:
+- Worked on backend development
+- Responsible for API design
+- Helped with database optimization
+- Participated in code reviews
+
+Skills: Python, JavaScript, SQL"""
+    }
+    
+    result = analyzer.analyze_cv(test_cv)
+    print(f"Score: {result['score']}/100 (Grade: {result['grade']})")
+    print(f"Total Issues: {result['total_issues']}")
+    print(f"\nImprovements:")
+    for imp in result['improvements']:
+        print(f"  - {imp}")

@@ -1,315 +1,310 @@
 """
-Job Description Parser - Extracts structured information from job postings
+Job Description Parser - 100% LLM-Based Intelligent Parsing
+Uses Ollama to extract requirements, skills, and metadata from job descriptions
 """
+import requests
+from typing import Dict, List, Optional
 import re
-import spacy
-from typing import Dict, List, Optional, Set
-from loguru import logger
 
 
 class JDParser:
-    """Parse job descriptions and extract structured requirements"""
+    """
+    Parse job descriptions using LLM for intelligent extraction
+    """
     
-    def __init__(self):
-        # Load spaCy model
+    def __init__(self, ollama_url: str = "http://localhost:11434"):
+        """
+        Initialize JD parser
+        
+        Args:
+            ollama_url: Ollama API endpoint
+        """
+        self.ollama_url = ollama_url
+        self.model = "gemma2:2b"
+    
+    def _call_ollama(self, prompt: str, max_tokens: int = 1500) -> str:
+        """Call Ollama LLM API"""
         try:
-            self.nlp = spacy.load("en_core_web_sm")
-            logger.info("spaCy model loaded successfully")
-        except OSError:
-            logger.error("spaCy model not found. Run: python -m spacy download en_core_web_sm")
-            raise
+            response = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "num_predict": max_tokens,
+                        "temperature": 0.5  # Lower temperature for more consistent extraction
+                    }
+                },
+                timeout=45
+            )
+            
+            if response.status_code == 200:
+                return response.json().get("response", "")
+            return ""
+        except Exception as e:
+            print(f"Ollama API error: {e}")
+            return ""
+    
+    def _parse_list_from_text(self, text: str, section_marker: str) -> List[str]:
+        """
+        Extract bulleted/numbered list from text after a section marker
         
-        # Keywords for detecting requirement types
-        self.required_keywords = [
-            'must have', 'required', 'requires', 'necessary',
-            'mandatory', 'essential', 'need', 'should have'
-        ]
+        Args:
+            text: Text to parse
+            section_marker: Section header to look for
+            
+        Returns:
+            List of items
+        """
+        items = []
+        in_section = False
         
-        self.preferred_keywords = [
-            'preferred', 'desirable', 'nice to have', 'bonus',
-            'plus', 'advantage', 'beneficial', 'would be great'
-        ]
+        for line in text.split('\n'):
+            line = line.strip()
+            
+            # Check if we've entered the section
+            if section_marker.lower() in line.lower():
+                in_section = True
+                continue
+            
+            # Check if we've left the section (new header)
+            if in_section and line and line[0].isupper() and ':' in line and not line.startswith(('-', '•', '*', '1', '2')):
+                break
+            
+            # Extract items from this section
+            if in_section and line:
+                if line.startswith(('-', '•', '*', '–', '►')) or (len(line) > 2 and line[0].isdigit() and line[1] in '.)'):
+                    clean_item = line.lstrip('-•*–►0123456789.)]: ').strip()
+                    if clean_item and len(clean_item) > 2:
+                        items.append(clean_item)
         
-        # Common technical skills (expanded list)
-        self.tech_skills = {
-            # Programming Languages
-            'python', 'java', 'javascript', 'typescript', 'c++', 'c#', 'go',
-            'rust', 'ruby', 'php', 'swift', 'kotlin', 'scala', 'r',
-            
-            # Web Frameworks
-            'react', 'angular', 'vue', 'django', 'flask', 'fastapi',
-            'express', 'node.js', 'spring', 'laravel', 'rails',
-            
-            # Databases
-            'sql', 'mysql', 'postgresql', 'mongodb', 'redis', 'cassandra',
-            'dynamodb', 'oracle', 'sql server', 'sqlite',
-            
-            # Cloud & DevOps
-            'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins',
-            'terraform', 'ansible', 'ci/cd', 'git', 'github', 'gitlab',
-            
-            # Data & ML
-            'pandas', 'numpy', 'tensorflow', 'pytorch', 'scikit-learn',
-            'spark', 'hadoop', 'kafka', 'airflow',
-            
-            # Other
-            'rest api', 'graphql', 'microservices', 'agile', 'scrum',
-            'jira', 'linux', 'bash', 'powershell'
-        }
+        return items
     
     def parse(self, jd_text: str) -> Dict:
         """
-        Main entry point - parse job description
+        Parse job description using LLM
         
         Args:
-            jd_text: Raw job description text
+            jd_text: Job description text
             
         Returns:
-            Dict with structured job requirements
+            Parsed JD data with sections
         """
-        if not jd_text or not jd_text.strip():
-            logger.error("Empty job description provided")
+        if not jd_text or len(jd_text.strip()) < 50:
             return {
-                'success': False,
-                'error': 'Empty job description',
-                'required_skills': [],
-                'preferred_skills': [],
-                'experience_years': None
+                'text': jd_text,
+                'sections': {},
+                'error': 'Job description too short or empty'
             }
         
-        try:
-            # Clean text
-            clean_text = self._clean_text(jd_text)
-            
-            # Extract job metadata
-            metadata = self._extract_metadata(clean_text)
-            
-            # Extract skills (required vs preferred)
-            required_skills, preferred_skills = self._extract_skills(clean_text)
-            
-            # Extract experience requirements
-            experience = self._extract_experience(clean_text)
-            
-            # Extract education requirements
-            education = self._extract_education(clean_text)
-            
-            result = {
-                'success': True,
-                'error': None,
-                'job_title': metadata.get('title'),
-                'company': metadata.get('company'),
-                'location': metadata.get('location'),
-                'required_skills': list(required_skills),
-                'preferred_skills': list(preferred_skills),
-                'experience_years': experience,
-                'education': education,
-                'raw_text': clean_text[:500] + '...' if len(clean_text) > 500 else clean_text
-            }
-            
-            logger.info(f"Parsed JD: {len(required_skills)} required, {len(preferred_skills)} preferred skills")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error parsing JD: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e),
-                'required_skills': [],
-                'preferred_skills': []
-            }
-    
-    def _clean_text(self, text: str) -> str:
-        """Clean and normalize job description text"""
-        # Remove excessive whitespace
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        text = re.sub(r' {2,}', ' ', text)
-        text = re.sub(r'\t+', ' ', text)
+        # Build LLM prompt for intelligent extraction
+        prompt = f"""You are an expert HR parser extracting structured information from job descriptions.
+
+JOB DESCRIPTION:
+{jd_text[:4000]}
+
+Extract the following information and format with clear headers:
+
+JOB TITLE:
+[Extract the job title/position name]
+
+REQUIRED SKILLS:
+[List all REQUIRED technical skills, tools, languages, frameworks]
+- Skill 1
+- Skill 2
+...
+
+PREFERRED SKILLS:
+[List all PREFERRED/nice-to-have skills]
+- Skill 1
+- Skill 2
+...
+
+EXPERIENCE:
+[Extract years of experience required, e.g., "5 years" or "3-5 years"]
+
+EDUCATION:
+[Extract degree requirements, e.g., "Bachelor's in Computer Science" or "Master's preferred"]
+
+RESPONSIBILITIES:
+[List main job responsibilities/duties]
+- Responsibility 1
+- Responsibility 2
+...
+
+QUALIFICATIONS:
+[List qualifications beyond skills, e.g., "Strong communication skills"]
+- Qualification 1
+- Qualification 2
+...
+
+BENEFITS:
+[List any mentioned benefits, perks, or compensation info]
+- Benefit 1
+- Benefit 2
+...
+
+Extract all information exactly as stated. If a section is not mentioned, write "Not specified".
+Use bullet points with "-" for lists."""
         
-        # Remove bullet points (we'll detect structure differently)
-        text = re.sub(r'^[•●○■□▪▫–-]\s*', '', text, flags=re.MULTILINE)
+        # Call LLM
+        llm_response = self._call_ollama(prompt, max_tokens=1500)
         
-        # Normalize whitespace
-        lines = [line.strip() for line in text.split('\n')]
-        text = '\n'.join(lines)
+        # Parse LLM response into structured sections
+        sections = {}
         
-        return text.strip()
-    
-    def _extract_metadata(self, text: str) -> Dict:
-        """Extract job title, company, location"""
-        metadata = {
-            'title': None,
-            'company': None,
-            'location': None
+        # Extract job title
+        job_title_match = re.search(r'JOB TITLE:?\s*\n?\s*(.+?)(?:\n\n|\nREQUIRED|\nPREFERRED|$)', llm_response, re.IGNORECASE | re.DOTALL)
+        if job_title_match:
+            sections['job_title'] = job_title_match.group(1).strip()
+        
+        # Extract required skills
+        required_skills = self._parse_list_from_text(llm_response, 'REQUIRED SKILLS')
+        if required_skills:
+            sections['required_skills'] = required_skills
+        
+        # Extract preferred skills
+        preferred_skills = self._parse_list_from_text(llm_response, 'PREFERRED SKILLS')
+        if preferred_skills:
+            sections['preferred_skills'] = preferred_skills
+        
+        # Extract experience
+        exp_match = re.search(r'EXPERIENCE:?\s*\n?\s*(.+?)(?:\n\n|\nEDUCATION|\nRESPONSIBILITIES|$)', llm_response, re.IGNORECASE | re.DOTALL)
+        if exp_match:
+            exp_text = exp_match.group(1).strip()
+            # Extract years
+            years_match = re.search(r'(\d+)[\s-]*(?:to|-)?\s*(\d+)?\s*(?:years?|yrs?)', exp_text, re.IGNORECASE)
+            if years_match:
+                min_years = int(years_match.group(1))
+                max_years = int(years_match.group(2)) if years_match.group(2) else min_years
+                sections['experience'] = {
+                    'text': exp_text,
+                    'years': f"{min_years}-{max_years}" if max_years != min_years else str(min_years),
+                    'min_years': min_years,
+                    'max_years': max_years
+                }
+            else:
+                sections['experience'] = {'text': exp_text, 'years': exp_text}
+        
+        # Extract education
+        edu_match = re.search(r'EDUCATION:?\s*\n?\s*(.+?)(?:\n\n|\nRESPONSIBILITIES|\nQUALIFICATIONS|$)', llm_response, re.IGNORECASE | re.DOTALL)
+        if edu_match:
+            sections['education'] = edu_match.group(1).strip()
+        
+        # Extract responsibilities
+        responsibilities = self._parse_list_from_text(llm_response, 'RESPONSIBILITIES')
+        if responsibilities:
+            sections['responsibilities'] = responsibilities
+        
+        # Extract qualifications
+        qualifications = self._parse_list_from_text(llm_response, 'QUALIFICATIONS')
+        if qualifications:
+            sections['qualifications'] = qualifications
+        
+        # Extract benefits
+        benefits = self._parse_list_from_text(llm_response, 'BENEFITS')
+        if benefits:
+            sections['benefits'] = benefits
+        
+        # Fallback: If LLM completely failed, do basic keyword extraction
+        if not sections or len(sections) < 2:
+            sections = self._fallback_parse(jd_text)
+        
+        return {
+            'text': jd_text,
+            'sections': sections,
+            'llm_response': llm_response
         }
-        
-        # Use spaCy NER to find organizations and locations
-        doc = self.nlp(text[:1000])  # First 1000 chars usually have metadata
-        
-        orgs = [ent.text for ent in doc.ents if ent.label_ == 'ORG']
-        locs = [ent.text for ent in doc.ents if ent.label_ == 'GPE']
-        
-        if orgs:
-            metadata['company'] = orgs[0]
-        if locs:
-            metadata['location'] = locs[0]
-        
-        # Try to extract job title from first few lines
-        lines = text.split('\n')[:5]
-        for line in lines:
-            # Job titles are often short and at the start
-            if 5 < len(line) < 60 and not any(kw in line.lower() for kw in ['http', 'www', '@']):
-                # Check if it contains common job title words
-                job_words = ['engineer', 'developer', 'manager', 'analyst', 'specialist', 
-                           'architect', 'consultant', 'designer', 'lead', 'senior', 'junior']
-                if any(word in line.lower() for word in job_words):
-                    metadata['title'] = line.strip()
-                    break
-        
-        return metadata
     
-    def _extract_skills(self, text: str) -> tuple[Set[str], Set[str]]:
-        """Extract required and preferred skills"""
-        required_skills = set()
-        preferred_skills = set()
+    def _fallback_parse(self, jd_text: str) -> Dict:
+        """
+        Fallback parsing if LLM fails
         
-        # Split into sentences for context analysis
-        doc = self.nlp(text)
-        sentences = [sent.text.lower() for sent in doc.sents]
-        
-        for sentence in sentences:
-            # Determine if sentence describes required or preferred skills
-            is_required = any(kw in sentence for kw in self.required_keywords)
-            is_preferred = any(kw in sentence for kw in self.preferred_keywords)
+        Args:
+            jd_text: Job description text
             
-            # Extract technical skills from sentence
-            found_skills = self._find_skills_in_text(sentence)
-            
-            if found_skills:
-                if is_required:
-                    required_skills.update(found_skills)
-                elif is_preferred:
-                    preferred_skills.update(found_skills)
-                else:
-                    # Default to required if no context
-                    required_skills.update(found_skills)
+        Returns:
+            Basic parsed sections
+        """
+        sections = {}
         
-        # Remove skills that appear in both (keep in required)
-        preferred_skills -= required_skills
+        # Try to extract job title (first line or before requirements)
+        lines = jd_text.split('\n')
+        for line in lines[:5]:
+            line = line.strip()
+            if line and len(line) < 100 and not line.lower().startswith(('we are', 'about', 'description')):
+                sections['job_title'] = line
+                break
         
-        return required_skills, preferred_skills
-    
-    def _find_skills_in_text(self, text: str) -> Set[str]:
-        """Find technical skills in a piece of text"""
-        found_skills = set()
-        text_lower = text.lower()
-        
-        # Check for known technical skills
-        for skill in self.tech_skills:
-            # Use word boundaries to avoid partial matches
-            pattern = r'\b' + re.escape(skill) + r'\b'
-            if re.search(pattern, text_lower):
-                found_skills.add(skill)
-        
-        # Also extract capitalized technical terms (likely skills)
-        # e.g., "Experience with TensorFlow and PyTorch"
-        words = text.split()
-        for word in words:
-            # Clean word
-            word_clean = re.sub(r'[^\w\s.-]', '', word)
-            
-            # Check if it looks like a tech skill
-            # (contains capital letters in middle, or common patterns)
-            if len(word_clean) > 2:
-                # CamelCase or has numbers (e.g., React, ES6, C++)
-                if (word_clean[0].isupper() and any(c.isupper() for c in word_clean[1:]) or
-                    any(c.isdigit() for c in word_clean) or
-                    '++' in word_clean or '#' in word_clean):
-                    found_skills.add(word_clean.lower())
-        
-        return found_skills
-    
-    def _extract_experience(self, text: str) -> Optional[Dict]:
-        """Extract experience requirements"""
-        # Patterns for experience mentions
-        patterns = [
-            r'(\d+)\+?\s*(?:to|\-)?\s*(\d+)?\s*years?\s+(?:of\s+)?experience',
-            r'(?:minimum|at least)\s+(\d+)\s*years?',
-            r'(\d+)\s*years?\s+(?:in|of|with)',
+        # Common technical skills to look for
+        common_skills = [
+            'Python', 'JavaScript', 'Java', 'C++', 'C#', 'Ruby', 'PHP', 'Go', 'Rust', 'Swift',
+            'React', 'Angular', 'Vue', 'Node', 'Django', 'Flask', 'Spring', 'FastAPI',
+            'SQL', 'MongoDB', 'PostgreSQL', 'MySQL', 'Redis', 'Elasticsearch',
+            'Docker', 'Kubernetes', 'AWS', 'Azure', 'GCP', 'CI/CD', 'Git', 'Linux',
+            'Machine Learning', 'Deep Learning', 'TensorFlow', 'PyTorch', 'NLP',
+            'REST API', 'GraphQL', 'Microservices', 'Agile', 'Scrum'
         ]
         
-        text_lower = text.lower()
+        found_skills = []
+        jd_lower = jd_text.lower()
         
-        for pattern in patterns:
-            matches = re.findall(pattern, text_lower)
-            if matches:
-                # Extract minimum years
-                if isinstance(matches[0], tuple):
-                    min_years = int(matches[0][0]) if matches[0][0] else None
-                    max_years = int(matches[0][1]) if len(matches[0]) > 1 and matches[0][1] else None
-                else:
-                    min_years = int(matches[0])
-                    max_years = None
-                
-                return {
-                    'min_years': min_years,
-                    'max_years': max_years,
-                    'required': 'required' in text_lower or 'must' in text_lower
-                }
+        for skill in common_skills:
+            if skill.lower() in jd_lower:
+                found_skills.append(skill)
         
-        return None
-    
-    def _extract_education(self, text: str) -> Optional[Dict]:
-        """Extract education requirements"""
-        education = {
-            'degree_level': None,
-            'field': None,
-            'required': False
-        }
+        if found_skills:
+            sections['required_skills'] = found_skills[:15]
         
-        text_lower = text.lower()
+        # Try to extract years of experience
+        exp_match = re.search(r'(\d+)[\s-]*(?:to|-)?\s*(\d+)?\s*(?:years?|yrs?)', jd_text, re.IGNORECASE)
+        if exp_match:
+            min_years = int(exp_match.group(1))
+            max_years = int(exp_match.group(2)) if exp_match.group(2) else min_years
+            sections['experience'] = {
+                'years': f"{min_years}-{max_years}" if max_years != min_years else str(min_years),
+                'min_years': min_years,
+                'max_years': max_years
+            }
         
-        # Detect degree level
-        degree_patterns = {
-            'phd': r'\b(?:phd|ph\.d\.|doctorate)\b',
-            'masters': r'\b(?:masters?|m\.s\.|msc|master\'s)\b',
-            'bachelors': r'\b(?:bachelors?|b\.s\.|bsc|bachelor\'s|undergraduate)\b',
-            'associates': r'\b(?:associates?|a\.s\.)\b'
-        }
-        
-        for level, pattern in degree_patterns.items():
-            if re.search(pattern, text_lower):
-                education['degree_level'] = level
-                break
-        
-        # Detect field of study
-        fields = ['computer science', 'engineering', 'mathematics', 'statistics', 
-                 'information technology', 'data science', 'physics']
-        
-        for field in fields:
-            if field in text_lower:
-                education['field'] = field
-                break
-        
-        # Check if required
-        if education['degree_level']:
-            # Look for requirement indicators near degree mention
-            context_window = 200  # chars around degree mention
-            for pattern in degree_patterns.values():
-                match = re.search(pattern, text_lower)
-                if match:
-                    context_start = max(0, match.start() - context_window)
-                    context_end = min(len(text_lower), match.end() + context_window)
-                    context = text_lower[context_start:context_end]
-                    
-                    if any(kw in context for kw in ['required', 'must', 'necessary', 'mandatory']):
-                        education['required'] = True
-                    break
-        
-        return education if education['degree_level'] else None
+        return sections
 
 
-# Convenience function
-def parse_jd(jd_text: str) -> Dict:
-    """Quick parse function"""
+# Test
+if __name__ == "__main__":
     parser = JDParser()
-    return parser.parse(jd_text)
+    
+    test_jd = """Senior Backend Engineer
+
+We are looking for a Senior Backend Engineer with 5+ years of experience.
+
+Required Skills:
+- Python (Django/FastAPI)
+- PostgreSQL
+- Docker & Kubernetes
+- AWS cloud services
+- REST API design
+
+Preferred Skills:
+- React.js
+- Redis caching
+- CI/CD pipelines
+
+Responsibilities:
+- Design and implement scalable backend systems
+- Mentor junior developers
+- Participate in architecture decisions
+
+Education: Bachelor's in Computer Science or equivalent
+
+Benefits:
+- Competitive salary
+- Remote work options
+- Health insurance"""
+    
+    result = parser.parse(test_jd)
+    print(f"✅ Parsed JD")
+    print(f"Job Title: {result['sections'].get('job_title', 'N/A')}")
+    print(f"Required Skills: {len(result['sections'].get('required_skills', []))}")
+    print(f"Experience: {result['sections'].get('experience', {}).get('years', 'N/A')}")
