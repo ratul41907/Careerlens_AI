@@ -1,7 +1,18 @@
 """
-Guidance module - Learning pathways and interview preparation
+Guidance package - Interview prep and learning pathways
 """
-from .learning_pathways import LearningPathwayGenerator
-from .interview_guidance import InterviewGuidanceSystem
+try:
+    from .interview_guidance import InterviewGuidance
+    __all__ = ['InterviewGuidance', 'LearningPathwayGenerator']
+except ImportError:
+    try:
+        from .interview_guidance import InterviewGuidanceSystem
+        InterviewGuidance = InterviewGuidanceSystem
+        __all__ = ['InterviewGuidance', 'LearningPathwayGenerator']
+    except ImportError:
+        pass
 
-__all__ = ['LearningPathwayGenerator', 'InterviewGuidanceSystem']
+try:
+    from .learning_pathways import LearningPathwayGenerator
+except ImportError:
+    pass

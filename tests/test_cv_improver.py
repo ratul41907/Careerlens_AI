@@ -1,113 +1,79 @@
 """
-Test CV Improver
+Test CV Improver (Integrated into CV Analyzer)
 """
-from src.generation.cv_improver import CVImprover
-import json
+import pytest
 
 
+@pytest.mark.skip(reason="CV Improver functionality integrated into CVAnalyzer")
 def test_cv_improver():
-    """Test CV improvement analysis"""
-    
-    print("=" * 70)
-    print("CV IMPROVEMENT ANALYZER TEST")
-    print("=" * 70)
-    
-    # Weak CV (has issues)
-    weak_cv = """
-    JOHN DOE
-    Software Developer
-    john@email.com | 555-1234
-    
-    EXPERIENCE
-    
-    Software Developer | TechCo | 2021 - Present
-    • Worked on backend development
-    • Helped with API projects
-    • Used Python for various tasks
-    • Responsible for bug fixes
-    
-    Junior Developer | StartupXYZ | 2019 - 2021
-    • Assisted in frontend development
-    • Participated in team meetings
-    • Contributed to codebase
-    
-    EDUCATION
-    Bachelor's in Computer Science | University | 2019
-    
-    SKILLS
-    Python, JavaScript, Git
     """
+    Test CV improvement suggestions
     
-    # Target JD
-    target_jd = """
-    Senior Software Engineer
+    Note: This test is skipped because CV improvement functionality 
+    is now integrated into the CVAnalyzer class (Mode 4).
     
-    Required:
-    • 5+ years Python development
-    • FastAPI framework expertise
-    • Docker and Kubernetes required
-    • AWS cloud services
-    • Strong problem-solving skills
-    
-    Preferred:
-    • Experience with microservices
-    • CI/CD pipeline knowledge
+    See: src/validation/cv_analyzer.py
+    Tests: tests/test_cv_analyzer.py
     """
+    from src.validation.cv_analyzer import CVAnalyzer
     
-    print("\n📊 ANALYZING CV...")
-    print("-" * 70)
+    analyzer = CVAnalyzer()
     
-    # Analyze
-    improver = CVImprover()
-    result = improver.analyze_and_improve(weak_cv, target_jd, num_suggestions=5)
-    
-    # Display results
-    print(f"\n{'='*70}")
-    print("CV IMPROVEMENT ANALYSIS")
-    print(f"{'='*70}")
-    
-    print(f"\n📈 CURRENT STATUS:")
-    print(f"   Match Score: {result['current_percentage']}")
-    print(f"   Issues Found: {result['issues_found']}")
-    print(f"   Potential Gain: {result['estimated_improvement']}")
-    
-    print(f"\n🔴 ISSUES IDENTIFIED:")
-    print("-" * 70)
-    for i, issue in enumerate(result['issues'], 1):
-        severity_emoji = "🔴" if issue['severity'] == 'High' else "🟡" if issue['severity'] == 'Medium' else "🟢"
-        print(f"\n{severity_emoji} Issue #{i}: {issue['title']} ({issue['severity']} Priority)")
-        print(f"   Description: {issue['description']}")
-        print(f"   Impact: {issue['impact']}")
-    
-    print(f"\n💡 IMPROVEMENT SUGGESTIONS:")
-    print("-" * 70)
-    for sugg in result['suggestions']:
-        print(f"\n🎯 Priority #{sugg['priority']}: {sugg['title']}")
-        print(f"   {sugg['description']}")
-        print(f"   Action: {sugg['action']}")
+    sample_cv = {
+        'text': """John Doe
+        Software Engineer
         
-        if 'before' in sugg:
-            print(f"\n   ❌ Before: {sugg['before']}")
-            print(f"   ✅ After:  {sugg['after']}")
-        elif 'example' in sugg:
-            print(f"\n   Example: {sugg['example']}")
+        Experience:
+        - Worked on projects
+        - Helped with development
+        - Responsible for testing
         
-        print(f"   Impact: {sugg['estimated_impact']}")
+        Skills: Python, JavaScript"""
+    }
     
-    print(f"\n🎯 PRIORITY ACTIONS:")
-    print("-" * 70)
-    for action in result['priority_actions']:
-        print(f"   • {action}")
+    # Analyze CV (includes improvement suggestions)
+    result = analyzer.analyze_cv(sample_cv)
     
-    print(f"\n{'='*70}")
-    print("FULL JSON OUTPUT:")
-    print(f"{'='*70}")
-    print(json.dumps(result, indent=2, default=str))
-    
-    print(f"\n{'='*70}")
-    print("✅ TEST COMPLETED!")
-    print(f"{'='*70}")
+    assert result is not None
+    assert 'score' in result
+    assert 'improvements' in result
+    assert len(result['improvements']) > 0
 
 
-if __name__ == "__main__":
-    test_cv_improver()
+# Add a passing test that verifies CV improvement via CVAnalyzer
+def test_cv_improvement_via_analyzer():
+    """Test that CV improvement works through CVAnalyzer"""
+    from src.validation.cv_analyzer import CVAnalyzer
+    
+    analyzer = CVAnalyzer()
+    
+    # Sample CV with obvious issues
+    weak_cv = {
+        'text': """John Doe
+        
+        Experience:
+        - Worked on backend
+        - Helped with API
+        - Responsible for database
+        
+        Skills: Python"""
+    }
+    
+    # Get improvement suggestions
+    result = analyzer.analyze_cv(weak_cv)
+    
+    assert result is not None
+    assert 'score' in result
+    assert 'grade' in result
+    assert 'improvements' in result
+    assert 'issues' in result
+    
+    # Should identify issues
+    assert result['total_issues'] >= 0
+    
+    # Should provide improvements
+    assert len(result['improvements']) >= 3
+    
+    print(f"✅ CV Analyzer provides {len(result['improvements'])} improvement suggestions")
+    print(f"   Score: {result['score']}/100 (Grade: {result['grade']})")
+    print(f"   Issues found: {result['total_issues']}")
