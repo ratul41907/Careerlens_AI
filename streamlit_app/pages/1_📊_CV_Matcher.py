@@ -252,9 +252,9 @@ with col1:
     # CV upload
     uploaded_file = st.file_uploader(
         "Upload CV (PDF, DOCX, or TXT)",
-        accepted_types=['pdf', 'docx', 'txt'],
+        type=['pdf', 'docx', 'txt'],
         key="cv_upload",
-        help_text="Upload your resume in PDF, DOCX, or TXT format"
+        help="Upload your resume in PDF, DOCX, or TXT format"
     )
     
     # OR paste CV text

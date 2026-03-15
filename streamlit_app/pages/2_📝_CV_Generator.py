@@ -29,12 +29,11 @@ from src.embeddings.embedding_engine import EmbeddingEngine
 from src.scoring.scoring_engine import ScoringEngine
 
 # Page config
-st.set_page_config(
-    page_title="CV Generator - CareerLens AI",
-    page_icon="📝",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+#st.set_page_config(
+ #   page_title="CV Generator - CareerLens AI",
+  ## layout="wide",
+    #initial_sidebar_state="expanded"
+#)
 
 # Dark theme CSS
 st.markdown("""

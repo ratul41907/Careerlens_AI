@@ -7,27 +7,27 @@ from pathlib import Path
 import json
 import os
 from datetime import datetime
-
-# Mobile responsiveness - Day 25
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils.mobile_styles import inject_mobile_styles
-inject_mobile_styles()
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.guidance.interview_guidance import InterviewGuidanceSystem
-
-# Page config
 st.set_page_config(
     page_title="Interview Prep - CareerLens AI",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+# Mobile responsiveness - Day 25
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from utils.mobile_styles import inject_mobile_styles
 
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
+from src.guidance.interview_guidance import InterviewGuidance
+
+# Page config
+
+inject_mobile_styles()
 # Dark theme CSS
 st.markdown("""
 <style>
@@ -178,7 +178,7 @@ st.markdown("""
 
 # Initialize session state
 if 'interview_system' not in st.session_state:
-    st.session_state.interview_system = InterviewGuidanceSystem()
+    st.session_state.interview_system = InterviewGuidance()
 if 'selected_question' not in st.session_state:
     st.session_state.selected_question = None
 if 'star_answer' not in st.session_state:
