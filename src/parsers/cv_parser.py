@@ -1,13 +1,31 @@
 """
-CV Parser - 100% LLM-Based Intelligent CV Parsing
-Uses Ollama to extract experience, skills, education from CVs
+CV Parser - Extract information from CV files
 """
-import requests
-from typing import Dict, List, Optional
 import re
-import PyPDF2
-import docx
+import json
+import requests
 from pathlib import Path
+from typing import Dict, List, Optional
+
+# PDF handling with fallback
+try:
+    from pypdf import PdfReader
+    PYPDF_VERSION = 'new'
+except ImportError:
+    try:
+        import PyPDF2
+        PYPDF_VERSION = 'old'
+    except ImportError:
+        raise ImportError("Please install pypdf: pip install pypdf")
+
+# DOCX handling
+try:
+    import docx
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+    print("Warning: python-docx not installed. DOCX parsing disabled.")
+
 
 
 class CVParser:
