@@ -259,10 +259,10 @@ def compute_match_score(cv_hash, jd_hash):
 
 **Responsive Design:**
 
-- ✅ **Mobile phones** (320px - 768px)
-- ✅ **Tablets** (768px - 1024px)
-- ✅ **Desktop** (1024px+)
-- ✅ **Landscape orientation** support
+-  **Mobile phones** (320px - 768px)
+-  **Tablets** (768px - 1024px)
+-  **Desktop** (1024px+)
+-  **Landscape orientation** support
 
 **Mobile Features:**
 
