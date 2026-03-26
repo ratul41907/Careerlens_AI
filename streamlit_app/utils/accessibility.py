@@ -388,33 +388,40 @@ class AccessibilityHelper:
         )
     
     @staticmethod
-    def accessible_text_area(label: str, key: Optional[str] = None, placeholder: str = "",
-                            height: int = 200, help_text: Optional[str] = None, required: bool = False):
+    def accessible_text_area(
+        label: str,
+        value: str = "",
+        height: int = 200,
+        placeholder: str = "",
+        help_text: str = "",
+        key: str = None,
+        max_chars: int = None,
+        label_visibility: str = "visible"
+    ):
         """
-        Create accessible text area
+        Create accessible text area with ARIA labels
         
         Args:
-            label: Label text
-            key: Unique key
-            placeholder: Placeholder text
+            label: Label for the text area
+            value: Default value
             height: Height in pixels
-            help_text: Help text
-            required: Required field
-            
-        Returns:
-            Input value
+            placeholder: Placeholder text
+            help_text: Help text below the input
+            key: Unique key for the widget
+            max_chars: Maximum character limit
+            label_visibility: Label visibility ("visible", "hidden", "collapsed")
         """
-        label_html = f"{label} {'*' if required else ''}"
-        
         return st.text_area(
-            label_html,
-            key=key,
-            placeholder=placeholder,
+            label=label,
+            value=value,
             height=height,
+            placeholder=placeholder,
             help=help_text,
-            label_visibility="visible"
+            key=key,
+            max_chars=max_chars,
+            label_visibility=label_visibility  # PASS IT TO STREAMLIT
         )
-    
+
     @staticmethod
     def screen_reader_text(text: str):
         """
@@ -424,7 +431,7 @@ class AccessibilityHelper:
             text: Text for screen readers
         """
         st.markdown(f'<span class="sr-only">{text}</span>', unsafe_allow_html=True)
-    
+
     @staticmethod
     def add_aria_live_region(region_id: str, content: str, politeness: str = "polite"):
         """
@@ -444,7 +451,7 @@ class AccessibilityHelper:
             {content}
         </div>
         ''', unsafe_allow_html=True)
-    
+
     @staticmethod
     def accessible_heading(text: str, level: int = 2, id: Optional[str] = None):
         """
@@ -457,7 +464,7 @@ class AccessibilityHelper:
         """
         id_attr = f'id="{id}"' if id else ''
         st.markdown(f'<h{level} {id_attr}>{text}</h{level}>', unsafe_allow_html=True)
-    
+
     @staticmethod
     def add_skip_link(target_id: str = "main-content"):
         """
@@ -471,7 +478,7 @@ class AccessibilityHelper:
             Skip to main content
         </a>
         ''', unsafe_allow_html=True)
-    
+
     @staticmethod
     def accessible_alert(message: str, alert_type: str = "info"):
         """
