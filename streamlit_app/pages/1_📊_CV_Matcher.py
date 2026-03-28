@@ -471,25 +471,34 @@ if analyze_button:
         progress_bar.progress(40)
         
         try:
-            if OPTIMIZATION_ENABLED:
-                jd_parser = ModelCache.load_jd_parser()
-                jd_data, jd_hash = ComputationCache.cache_jd_parse(jd_parser, jd_text)
-            else:
-                jd_parser = JDParser()
-                jd_data = jd_parser.parse(jd_text)
-                jd_hash = hashlib.md5(jd_text.encode()).hexdigest()
-            
-            num_required = len(jd_data.get('required_skills', []))
-            num_preferred = len(jd_data.get('preferred_skills', []))
-            
-            st.success(f"✅ Found {num_required} required, {num_preferred} preferred skills")
-            time.sleep(0.3)
-            
+                if OPTIMIZATION_ENABLED:
+                    jd_parser = ModelCache.load_jd_parser()
+                    jd_parsed, jd_hash = ComputationCache.cache_jd_parse(jd_parser, jd_text)
+                else:
+                    jd_parser = JDParser()
+                    jd_parsed = jd_parser.parse(jd_text)
+                    jd_hash = hashlib.md5(jd_text.encode()).hexdigest()
+                
+                jd_data = {
+                    'text': jd_parsed.get('text', jd_text),
+                    'required_skills': jd_parsed.get('sections', {}).get('required_skills', []),
+                    'preferred_skills': jd_parsed.get('sections', {}).get('preferred_skills', []),
+                    'experience': jd_parsed.get('sections', {}).get('experience', {}),
+                    'education': jd_parsed.get('sections', {}).get('education', ''),
+                    'job_title': jd_parsed.get('sections', {}).get('job_title', ''),
+                }
+                
+                num_required = len(jd_data.get('required_skills', []))
+                num_preferred = len(jd_data.get('preferred_skills', []))
+                
+                st.success(f"✅ Found {num_required} required, {num_preferred} preferred skills")
+                time.sleep(0.3)
+                
         except Exception as e:
-            progress_bar.empty()
-            status_text.empty()
-            st.error(f"❌ **Failed to parse job description**")
-            st.warning(f"""
+                    progress_bar.empty()
+                    status_text.empty()
+                    st.error(f"❌ **Failed to parse job description**")
+                    st.warning(f"""
             **Possible causes:**
             - JD text incomplete
             - No clear skills section
@@ -500,7 +509,7 @@ if analyze_button:
             
             **Technical details:** {str(e)}
             """)
-            st.stop()
+                    st.stop()
         
         # Step 3: Embeddings (60%)
         status_text.info("🧠 **Step 3/5:** Generating semantic embeddings (AI)...")
@@ -640,7 +649,11 @@ if st.session_state.match_result:
     
     with breakdown_col1:
         req_score = match_result['breakdown']['required_skills']['percentage']
-        req_matched = match_result['breakdown']['required_skills']['details']['match_rate']
+        # With this:
+        details = match_result['breakdown']['required_skills'].get('details', {})
+        matched_count = details.get('matched_count', 0)
+        total_count = details.get('total_count', 1)  # avoid division by zero
+        req_matched = f"{matched_count}/{total_count} skills"
         st.metric(
             "Required Skills",
             req_score,
@@ -665,55 +678,137 @@ if st.session_state.match_result:
         )
     
     # Detailed skills analysis
-    st.markdown("### 🎯 Skills Analysis")
+    # # ===================================================================
+# SKILL BREAKDOWN DISPLAY
+# ===================================================================
+if match_result and 'breakdown' in match_result:
+    st.markdown("---")
+    st.markdown("### 🔍 Detailed Match Breakdown")
     
-    required_skills = match_result['breakdown']['required_skills']['details']['skills']
-    
-    # Separate matched and missing
-    matched_skills = [s for s in required_skills if s['matched']]
-    missing_skills = [s for s in required_skills if not s['matched']]
-    
-    skill_col1, skill_col2 = st.columns(2)
-    
-    with skill_col1:
-        st.markdown(f"#### ✅ Matched Skills ({len(matched_skills)})")
+    # Required Skills Section
+    with st.expander("📌 Required Skills Analysis", expanded=True):
+        req_breakdown = match_result['breakdown']['required_skills']
+        req_details = req_breakdown.get('details', {})
         
-        for skill_info in matched_skills[:5]:
-            skill = skill_info['skill']
-            score = skill_info['score']
-            percentage = skill_info['percentage']
-            strength = skill_info['strength']
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            score = req_breakdown.get('score', 0)
+            st.metric("Score", f"{score*100:.1f}%")
+        
+        with col2:
+            weight = req_breakdown.get('weight', 0)
+            st.metric("Weight", f"{weight*100:.0f}%")
+        
+        with col3:
+            contribution = req_breakdown.get('contribution', '0%')
+            st.metric("Contribution", contribution)
+        
+        # Matched vs Missing Skills
+        st.markdown("#### Skills Breakdown")
+        
+        skill_col1, skill_col2 = st.columns(2)
+        
+        with skill_col1:
+            st.markdown("**✅ Matched Skills:**")
+            matched_skills = req_details.get('matched_skills', [])
+            if matched_skills:
+                for skill in matched_skills[:15]:  # Show up to 15
+                    st.markdown(f"- ✓ {skill}")
+                if len(matched_skills) > 15:
+                    st.caption(f"... and {len(matched_skills) - 15} more")
+            else:
+                st.info("No matched skills found")
+        
+        with skill_col2:
+            st.markdown("**❌ Missing Skills:**")
+            missing_skills = req_details.get('missing_skills', [])
+            if missing_skills:
+                for skill in missing_skills[:15]:  # Show up to 15
+                    st.markdown(f"- ✗ {skill}")
+                if len(missing_skills) > 15:
+                    st.caption(f"... and {len(missing_skills) - 15} more")
+            else:
+                st.success("All required skills present!")
+        
+        # Match rate
+        match_rate = req_details.get('match_rate', '0/0')
+        st.info(f"📊 Match Rate: {match_rate}")
+    
+    # Preferred Skills Section
+    with st.expander("⭐ Preferred Skills Analysis", expanded=False):
+        pref_breakdown = match_result['breakdown']['preferred_skills']
+        pref_details = pref_breakdown.get('details', {})
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            score = pref_breakdown.get('score', 0)
+            st.metric("Score", f"{score*100:.1f}%")
+        
+        with col2:
+            weight = pref_breakdown.get('weight', 0)
+            st.metric("Weight", f"{weight*100:.0f}%")
+        
+        with col3:
+            contribution = pref_breakdown.get('contribution', '0%')
+            st.metric("Contribution", contribution)
+        
+        # Matched preferred skills
+        matched_pref = pref_details.get('matched_skills', [])
+        missing_pref = pref_details.get('missing_skills', [])
+        
+        if matched_pref or missing_pref:
+            skill_col1, skill_col2 = st.columns(2)
             
-            st.markdown(f"""
-            <div class="skill-card skill-matched">
-                <strong style="color: #10b981; font-size: 1.1rem;">{skill}</strong>
-                <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 0.25rem;">
-                    {percentage} • {strength}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            st.progress(score)
+            with skill_col1:
+                st.markdown("**✅ Matched:**")
+                if matched_pref:
+                    for skill in matched_pref[:10]:
+                        st.markdown(f"- ✓ {skill}")
+                else:
+                    st.info("None matched")
+            
+            with skill_col2:
+                st.markdown("**❌ Missing:**")
+                if missing_pref:
+                    for skill in missing_pref[:10]:
+                        st.markdown(f"- ✗ {skill}")
+                else:
+                    st.success("All present!")
     
-    with skill_col2:
-        st.markdown(f"#### ❌ Missing Skills ({len(missing_skills)})")
+    # Experience Section
+    with st.expander("💼 Experience Analysis", expanded=False):
+        exp_breakdown = match_result['breakdown']['experience']
+        exp_details = exp_breakdown.get('details', {})
         
-        if missing_skills:
-            for skill_info in missing_skills[:5]:
-                skill = skill_info['skill']
-                score = skill_info['score']
-                percentage = skill_info['percentage']
-                
-                st.markdown(f"""
-                <div class="skill-card skill-missing">
-                    <strong style="color: #ef4444; font-size: 1.1rem;">{skill}</strong>
-                    <div style="color: #94a3b8; font-size: 0.9rem; margin-top: 0.25rem;">
-                        {percentage} • Not found in CV
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                st.progress(score)
-        else:
-            st.success("🎉 All required skills matched!")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            score = exp_breakdown.get('score', 0)
+            st.metric("Score", f"{score*100:.1f}%")
+        
+        with col2:
+            weight = exp_breakdown.get('weight', 0)
+            st.metric("Weight", f"{weight*100:.0f}%")
+        
+        with col3:
+            contribution = exp_breakdown.get('contribution', '0%')
+            st.metric("Contribution", contribution)
+        
+        # Experience details
+        cv_exp = exp_details.get('cv_experience', 'Not specified')
+        jd_req = exp_details.get('jd_requirement', 'Not specified')
+        
+        col_exp1, col_exp2 = st.columns(2)
+        
+        with col_exp1:
+            st.markdown("**Your Experience:**")
+            st.info(cv_exp)
+        
+        with col_exp2:
+            st.markdown("**Required:**")
+            st.info(jd_req)
     
     # Evidence section
     if 'evidence' in explanation and explanation['evidence']:

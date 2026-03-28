@@ -1,428 +1,343 @@
 """
-Scoring Engine - Computes weighted CV-JD match scores
+Scoring Engine - Match CV against JD
 """
+from typing import Dict, List
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from sklearn.metrics.pairwise import cosine_similarity
 from loguru import logger
-from src.embeddings.embedding_engine import EmbeddingEngine
 
 
 class ScoringEngine:
-    """
-    Compute weighted match scores between CV and Job Description
+    """Score CV-JD match using embeddings and semantic similarity"""
     
-    Scoring Formula:
-    Overall Score = 0.60 × Required Skills Score
-                  + 0.25 × Preferred Skills Score  
-                  + 0.15 × Experience Alignment Score
-    """
+    def __init__(self, embedding_engine):
+        self.embedding_engine = embedding_engine
     
-    def __init__(self, embedding_engine: Optional[EmbeddingEngine] = None):
+    def compute_match_score(self, cv_data: Dict, jd_data: Dict) -> Dict:
         """
-        Initialize scoring engine
+        Compute match score between CV and JD
         
         Args:
-            embedding_engine: Pre-initialized embedding engine (optional)
-        """
-        # Weights for different components
-        self.weights = {
-            'required_skills': 0.60,
-            'preferred_skills': 0.25,
-            'experience': 0.15
-        }
-        
-        # Threshold for considering a skill as "matched"
-        self.match_threshold = 0.60
-        
-        # Initialize or use provided embedding engine
-        if embedding_engine is None:
-            logger.info("Creating new embedding engine for scoring")
-            self.embedding_engine = EmbeddingEngine()
-        else:
-            self.embedding_engine = embedding_engine
-            logger.info("Using provided embedding engine")
-    
-    def compute_match_score(self,
-                           cv_data: Dict,
-                           jd_data: Dict) -> Dict:
-        """
-        Compute overall match score between CV and JD
-        
-        Args:
-            cv_data: Parsed CV data from cv_parser
-            jd_data: Parsed JD data from jd_parser
+            cv_data: Parsed CV data
+            jd_data: Parsed JD data
             
         Returns:
-            Dict with overall score, breakdown, and details
+            Dictionary with scores and breakdown
         """
-        logger.info("Computing match score...")
-        
-        # Extract CV text/sections
-        cv_text = cv_data.get('text', '')
-        cv_sections = cv_data.get('sections', {})
-        
-        # Extract JD requirements
-        required_skills = jd_data.get('required_skills', [])
-        preferred_skills = jd_data.get('preferred_skills', [])
-        jd_experience = jd_data.get('experience_years', {})
-        
-        # Compute required skills score
-        required_score, required_details = self._score_skills(
-            cv_text, 
-            cv_sections,
-            required_skills,
-            skill_type='required'
-        )
-        
-        # Compute preferred skills score
-        preferred_score, preferred_details = self._score_skills(
-            cv_text,
-            cv_sections, 
-            preferred_skills,
-            skill_type='preferred'
-        )
-        
-        # Compute experience alignment score
-        experience_score, experience_details = self._score_experience(
-            cv_text,
-            cv_sections,
-            jd_experience
-        )
-        
-        # Calculate weighted overall score
-        overall_score = (
-            self.weights['required_skills'] * required_score +
-            self.weights['preferred_skills'] * preferred_score +
-            self.weights['experience'] * experience_score
-        )
-        
-        # Round to 2 decimal places
-        overall_score = round(overall_score, 4)
-        required_score = round(required_score, 4)
-        preferred_score = round(preferred_score, 4)
-        experience_score = round(experience_score, 4)
-        
-        result = {
-            'overall_score': overall_score,
-            'overall_percentage': f"{overall_score * 100:.1f}%",
-            'breakdown': {
+        try:
+            # Extract sections - handle both dict with 'sections' key and direct dict
+            cv_sections = cv_data.get('sections', cv_data) if isinstance(cv_data, dict) else {}
+            jd_sections = jd_data.get('sections', jd_data) if isinstance(jd_data, dict) else {}
+            
+            # Get CV text - handle multiple formats
+            cv_text = cv_data.get('text', '')
+            if not cv_text and isinstance(cv_sections, dict):
+                # Reconstruct text from sections if needed
+                cv_text = ' '.join([
+                    str(v) if isinstance(v, str) else ' '.join(v) if isinstance(v, list) else ''
+                    for v in cv_sections.values()
+                ])
+            
+            # Get JD text - handle multiple formats
+            jd_text = jd_data.get('text', '')
+            if not jd_text and isinstance(jd_sections, dict):
+                jd_text = ' '.join([
+                    str(v) if isinstance(v, str) else ' '.join(v) if isinstance(v, list) else ''
+                    for v in jd_sections.values()
+                ])
+            
+            # Extract skills - convert to lists if needed
+            cv_skills = cv_sections.get('skills', [])
+            if isinstance(cv_skills, str):
+                cv_skills = [s.strip() for s in cv_skills.split(',') if s.strip()]
+            elif not isinstance(cv_skills, list):
+                cv_skills = []
+            
+            jd_required_skills = jd_sections.get('required_skills', [])
+            if isinstance(jd_required_skills, str):
+                jd_required_skills = [s.strip() for s in jd_required_skills.split(',') if s.strip()]
+            elif not isinstance(jd_required_skills, list):
+                jd_required_skills = []
+            
+            jd_preferred_skills = jd_sections.get('preferred_skills', [])
+            if isinstance(jd_preferred_skills, str):
+                jd_preferred_skills = [s.strip() for s in jd_preferred_skills.split(',') if s.strip()]
+            elif not isinstance(jd_preferred_skills, list):
+                jd_preferred_skills = []
+            
+            # Score required skills (60% weight)
+            required_score = self._score_skills(cv_skills, jd_required_skills, cv_text, jd_text)
+            
+            # Score preferred skills (25% weight)
+            preferred_score = self._score_skills(cv_skills, jd_preferred_skills, cv_text, jd_text)
+            
+            # Score experience (15% weight)
+            experience_score = self._score_experience(cv_sections, jd_sections)
+            
+            # Calculate weighted overall score
+            overall_score = (
+                required_score * 0.60 +
+                preferred_score * 0.25 +
+                experience_score * 0.15
+            )
+            
+            # Create breakdown
+            breakdown = {
                 'required_skills': {
                     'score': required_score,
-                    'percentage': f"{required_score * 100:.1f}%",
-                    'weight': f"{self.weights['required_skills'] * 100:.0f}%",
-                    'contribution': f"{required_score * self.weights['required_skills'] * 100:.1f}%",
-                    'details': required_details
+                    'weight': 0.60,
+                    'percentage': f"{required_score*100:.1f}%",
+                    'contribution': f"{required_score*0.60*100:.1f}%",
+                    'details': self._get_skill_details(cv_skills, jd_required_skills, cv_text, jd_text)
                 },
                 'preferred_skills': {
                     'score': preferred_score,
-                    'percentage': f"{preferred_score * 100:.1f}%",
-                    'weight': f"{self.weights['preferred_skills'] * 100:.0f}%",
-                    'contribution': f"{preferred_score * self.weights['preferred_skills'] * 100:.1f}%",
-                    'details': preferred_details
+                    'weight': 0.25,
+                    'percentage': f"{preferred_score*100:.1f}%",
+                    'contribution': f"{preferred_score*0.25*100:.1f}%",
+                    'details': self._get_skill_details(cv_skills, jd_preferred_skills, cv_text, jd_text)
                 },
                 'experience': {
                     'score': experience_score,
-                    'percentage': f"{experience_score * 100:.1f}%",
-                    'weight': f"{self.weights['experience'] * 100:.0f}%",
-                    'contribution': f"{experience_score * self.weights['experience'] * 100:.1f}%",
-                    'details': experience_details
+                    'weight': 0.15,
+                    'percentage': f"{experience_score*100:.1f}%",
+                    'contribution': f"{experience_score*0.15*100:.1f}%",
+                    'details': self._get_experience_details(cv_sections, jd_sections)
                 }
-            },
-            'interpretation': self._interpret_score(overall_score)
-        }
-        
-        logger.info(f"Match score computed: {overall_score * 100:.1f}%")
-        return result
+            }
+            
+            return {
+                'overall_score': overall_score,
+                'overall_percentage': f"{overall_score*100:.1f}%",
+                'breakdown': breakdown,
+                'interpretation': self._interpret_score(overall_score)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error computing match score: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'overall_score': 0.0,
+                'overall_percentage': "0.0%",
+                'breakdown': {},
+                'error': str(e)
+            }
     
-    def _score_skills(self,
-                     cv_text: str,
-                     cv_sections: Dict,
-                     skills: List[str],
-                     skill_type: str = 'required') -> Tuple[float, Dict]:
-        """
-        Score how well CV matches a list of skills
-        
-        Args:
-            cv_text: Full CV text
-            cv_sections: Parsed CV sections
-            skills: List of skills to match
-            skill_type: 'required' or 'preferred'
+    def _score_skills(self, cv_skills: List[str], jd_skills: List[str], 
+                     cv_text: str, jd_text: str) -> float:
+        """Score skill match using semantic similarity"""
+        try:
+            # Ensure we have lists
+            if not isinstance(cv_skills, list):
+                cv_skills = []
+            if not isinstance(jd_skills, list):
+                jd_skills = []
             
-        Returns:
-            (average_score, details_dict)
-        """
-        if not skills:
-            logger.debug(f"No {skill_type} skills to score")
-            return 1.0, {'matched': 0, 'total': 0, 'skills': []}
-        
-        # Extract relevant CV sections for skill matching
-        skill_text = self._extract_skill_context(cv_sections)
-        
-        # If no skill context found, use full text
-        if not skill_text:
-            skill_text = cv_text
-        
-        # Encode all skills
-        skill_embeddings = self.embedding_engine.encode(skills)
-        
-        # Encode CV skill context
-        cv_embedding = self.embedding_engine.encode(skill_text)
-        
-        # Compute similarities
-        skill_scores = []
-        skill_details = []
-        
-        for i, skill in enumerate(skills):
-            similarity = self.embedding_engine.compute_similarity(
-                cv_embedding,
-                skill_embeddings[i]
-            )
+            if not jd_skills:
+                return 1.0  # No required skills = perfect match
             
-            # Classify match strength
-            if similarity >= 0.80:
-                strength = "Strong"
-            elif similarity >= self.match_threshold:
-                strength = "Partial"
+            if not cv_skills:
+                return 0.0  # No CV skills but JD has requirements = no match
+            
+            # Convert to strings
+            cv_skills = [str(s) for s in cv_skills]
+            jd_skills = [str(s) for s in jd_skills]
+            
+            # Create skill text
+            cv_skill_text = ' '.join(cv_skills)
+            jd_skill_text = ' '.join(jd_skills)
+            
+            # Get embeddings
+            cv_embedding = self.embedding_engine.get_embedding(cv_skill_text)
+            jd_embedding = self.embedding_engine.get_embedding(jd_skill_text)
+            
+            # Calculate cosine similarity
+            similarity = cosine_similarity(
+                cv_embedding.reshape(1, -1),
+                jd_embedding.reshape(1, -1)
+            )[0][0]
+            
+            # Normalize to 0-1 range
+            score = max(0.0, min(1.0, similarity))
+            
+            return score
+            
+        except Exception as e:
+            logger.error(f"Error scoring skills: {e}")
+            return 0.0
+    
+    def _score_experience(self, cv_sections: Dict, jd_sections: Dict) -> float:
+        """Score experience match"""
+        try:
+            # Get experience from CV
+            cv_exp = cv_sections.get('experience', '')
+            cv_exp_str = str(cv_exp) if cv_exp else '0'
+            
+            # Extract years from CV
+            cv_years = 0
+            if 'year' in cv_exp_str.lower():
+                import re
+                numbers = re.findall(r'\d+', cv_exp_str)
+                if numbers:
+                    cv_years = int(numbers[0])
+            
+            # Get experience requirement from JD
+            jd_exp = jd_sections.get('experience', {})
+            if isinstance(jd_exp, dict):
+                jd_years = jd_exp.get('min_years', 0)
+            elif isinstance(jd_exp, str):
+                import re
+                numbers = re.findall(r'\d+', jd_exp)
+                jd_years = int(numbers[0]) if numbers else 0
             else:
-                strength = "Weak/Missing"
+                jd_years = 0
             
-            skill_scores.append(similarity)
-            skill_details.append({
-                'skill': skill,
-                'score': round(float(similarity), 4),
-                'percentage': f"{similarity * 100:.1f}%",
-                'strength': strength,
-                'matched': similarity >= self.match_threshold
-            })
-        
-        # Calculate average score
-        avg_score = np.mean(skill_scores)
-        
-        # Count matched skills
-        matched_count = sum(1 for s in skill_scores if s >= self.match_threshold)
-        
-        details = {
-            'matched': matched_count,
-            'total': len(skills),
-            'match_rate': f"{matched_count}/{len(skills)}",
-            'skills': skill_details
-        }
-        
-        logger.debug(f"{skill_type.title()} skills: {matched_count}/{len(skills)} matched")
-        
-        return float(avg_score), details
-    
-    def _extract_skill_context(self, cv_sections: Dict) -> str:
-        """
-        Extract text from CV sections most relevant for skill matching
-        
-        Args:
-            cv_sections: Parsed CV sections
+            # Score based on experience match
+            if jd_years == 0:
+                return 1.0  # No requirement
             
-        Returns:
-            Combined text from relevant sections
-        """
-        relevant_sections = ['skills', 'experience', 'projects', 'certifications']
-        
-        context_parts = []
-        for section_name in relevant_sections:
-            if section_name in cv_sections:
-                context_parts.append(cv_sections[section_name])
-        
-        return "\n\n".join(context_parts)
-    
-    def _score_experience(self,
-                         cv_text: str,
-                         cv_sections: Dict,
-                         jd_experience: Optional[Dict]) -> Tuple[float, Dict]:
-        """
-        Score experience alignment using sigmoid normalization
-        
-        Args:
-            cv_text: Full CV text
-            cv_sections: Parsed CV sections
-            jd_experience: JD experience requirements
-            
-        Returns:
-            (experience_score, details_dict)
-        """
-        if not jd_experience or jd_experience.get('min_years') is None:
-            logger.debug("No experience requirement in JD")
-            return 1.0, {
-                'cv_years': 'Not extracted',
-                'jd_required': 'Not specified',
-                'score': 1.0,
-                'note': 'No experience requirement specified'
-            }
-        
-        # Extract years from CV
-        cv_years = self._extract_cv_years(cv_text, cv_sections)
-        jd_min_years = jd_experience['min_years']
-        
-        if cv_years is None:
-            logger.warning("Could not extract years of experience from CV")
-            # Give benefit of doubt - assume they meet requirement
-            return 0.70, {
-                'cv_years': 'Not found in CV',
-                'jd_required': f"{jd_min_years}+ years",
-                'score': 0.70,
-                'note': 'Could not determine experience from CV'
-            }
-        
-        # Compute score using sigmoid function
-        # This avoids cliff-edge behavior (e.g., 2.9 years vs 3.0 years)
-        score = self._sigmoid_experience_score(cv_years, jd_min_years)
-        
-        details = {
-            'cv_years': cv_years,
-            'jd_required': f"{jd_min_years}+ years",
-            'score': round(score, 4),
-            'meets_requirement': cv_years >= jd_min_years,
-            'note': self._experience_interpretation(cv_years, jd_min_years)
-        }
-        
-        logger.debug(f"Experience: CV has {cv_years} years, JD requires {jd_min_years}+ years")
-        
-        return score, details
-    
-    def _extract_cv_years(self, cv_text: str, cv_sections: Dict) -> Optional[float]:
-        """
-        Extract years of experience from CV
-        
-        Args:
-            cv_text: Full CV text
-            cv_sections: Parsed CV sections
-            
-        Returns:
-            Years of experience (float) or None
-        """
-        import re
-        
-        # Look for explicit mentions
-        patterns = [
-            r'(\d+)\+?\s*years?\s+(?:of\s+)?experience',
-            r'experience:\s*(\d+)\+?\s*years?',
-        ]
-        
-        text = cv_text.lower()
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                return float(match.group(1))
-        
-        # If not found explicitly, try to count from experience section
-        if 'experience' in cv_sections:
-            # Simple heuristic: count year ranges mentioned
-            exp_text = cv_sections['experience']
-            year_matches = re.findall(r'20\d{2}', exp_text)
-            
-            if len(year_matches) >= 2:
-                # Calculate rough experience from first to last year
-                years = [int(y) for y in year_matches]
-                experience_years = max(years) - min(years)
+            if cv_years >= jd_years:
+                return 1.0  # Meets or exceeds
+            elif cv_years >= jd_years * 0.75:
+                return 0.8  # Close enough
+            elif cv_years >= jd_years * 0.5:
+                return 0.6  # Partial match
+            else:
+                return 0.3  # Significant gap
                 
-                # Cap at reasonable maximum
-                if 0 < experience_years <= 50:
-                    return float(experience_years)
-        
-        return None
+        except Exception as e:
+            logger.error(f"Error scoring experience: {e}")
+            return 0.5
     
-    def _sigmoid_experience_score(self, cv_years: float, required_years: float) -> float:
-        """
-        Compute experience score using sigmoid function
-        
-        This creates smooth transitions:
-        - Well below requirement: ~0.3-0.5
-        - Slightly below: ~0.7-0.8
-        - Meets requirement: ~0.9
-        - Exceeds: ~1.0
-        
-        Args:
-            cv_years: Years from CV
-            required_years: Years required by JD
+    def _get_skill_details(self, cv_skills: List[str], jd_skills: List[str], 
+                          cv_text: str, jd_text: str) -> Dict:
+        """Get detailed skill matching information"""
+        try:
+            # Ensure we have lists
+            if not isinstance(cv_skills, list):
+                cv_skills = []
+            if not isinstance(jd_skills, list):
+                jd_skills = []
             
-        Returns:
-            Score between 0 and 1
-        """
-        # Difference from requirement
-        diff = cv_years - required_years
-        
-        # Sigmoid with smooth curve
-        # k controls steepness (lower = more forgiving)
-        k = 0.5
-        score = 1 / (1 + np.exp(-k * diff))
-        
-        # Ensure minimum score of 0.3 if they have any experience
-        if cv_years > 0:
-            score = max(score, 0.30)
-        
-        # Cap at 1.0
-        score = min(score, 1.0)
-        
-        return float(score)
+            # Ensure we have strings for text
+            cv_text = str(cv_text) if cv_text else ""
+            jd_text = str(jd_text) if jd_text else ""
+            
+            matched_skills = []
+            missing_skills = []
+            
+            for jd_skill in jd_skills:
+                jd_skill_str = str(jd_skill).strip()
+                if not jd_skill_str:
+                    continue
+                
+                # Check if skill is in CV
+                is_matched = False
+                
+                # Check in CV skills list
+                for cv_skill in cv_skills:
+                    cv_skill_str = str(cv_skill).strip()
+                    if self._skills_match(cv_skill_str, jd_skill_str):
+                        matched_skills.append(jd_skill_str)
+                        is_matched = True
+                        break
+                
+                # If not matched in list, check in CV text
+                if not is_matched and jd_skill_str.lower() in cv_text.lower():
+                    matched_skills.append(jd_skill_str)
+                    is_matched = True
+                
+                # If still not matched, it's missing
+                if not is_matched:
+                    missing_skills.append(jd_skill_str)
+            
+            return {
+                'matched_skills': matched_skills,
+                'missing_skills': missing_skills,
+                'match_rate': f"{len(matched_skills)}/{len(jd_skills)}" if jd_skills else "0/0"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in _get_skill_details: {e}")
+            return {
+                'matched_skills': [],
+                'missing_skills': [],
+                'match_rate': "0/0"
+            }
     
-    def _experience_interpretation(self, cv_years: float, required_years: float) -> str:
-        """Generate human-readable experience interpretation"""
-        diff = cv_years - required_years
+    def _skills_match(self, cv_skill: str, jd_skill: str) -> bool:
+        """Check if two skills match (case-insensitive, fuzzy)"""
+        cv_lower = cv_skill.lower().strip()
+        jd_lower = jd_skill.lower().strip()
         
-        if diff >= 2:
-            return f"Exceeds requirement by {diff:.0f} years"
-        elif diff >= 0:
-            return "Meets requirement"
-        elif diff >= -1:
-            return f"Close to requirement (short by {abs(diff):.0f} year)"
-        else:
-            return f"Below requirement (short by {abs(diff):.0f} years)"
+        # Exact match
+        if cv_lower == jd_lower:
+            return True
+        
+        # One contains the other
+        if cv_lower in jd_lower or jd_lower in cv_lower:
+            return True
+        
+        # Common synonyms
+        synonyms = {
+            'js': 'javascript',
+            'ts': 'typescript',
+            'py': 'python',
+            'k8s': 'kubernetes',
+            'docker': 'containerization',
+            'ci/cd': 'continuous integration'
+        }
+        
+        cv_normalized = synonyms.get(cv_lower, cv_lower)
+        jd_normalized = synonyms.get(jd_lower, jd_lower)
+        
+        return cv_normalized == jd_normalized
+    
+    def _get_experience_details(self, cv_sections: Dict, jd_sections: Dict) -> Dict:
+        """Get experience matching details"""
+        try:
+            cv_exp = str(cv_sections.get('experience', 'Not specified'))
+            jd_exp = jd_sections.get('experience', {})
+            
+            if isinstance(jd_exp, dict):
+                jd_exp_text = jd_exp.get('text', 'Not specified')
+            else:
+                jd_exp_text = str(jd_exp)
+            
+            return {
+                'cv_experience': cv_exp,
+                'jd_requirement': jd_exp_text
+            }
+        except:
+            return {
+                'cv_experience': 'Not specified',
+                'jd_requirement': 'Not specified'
+            }
     
     def _interpret_score(self, score: float) -> Dict:
-        """
-        Provide interpretation of overall match score
-        
-        Args:
-            score: Overall match score (0-1)
-            
-        Returns:
-            Dict with interpretation details
-        """
-        percentage = score * 100
-        
-        if percentage >= 85:
-            level = "Excellent Match"
-            recommendation = "Strongly recommended - candidate is highly qualified"
-            color = "green"
-        elif percentage >= 70:
-            level = "Good Match"
-            recommendation = "Recommended - candidate meets most requirements"
-            color = "blue"
-        elif percentage >= 55:
-            level = "Moderate Match"
-            recommendation = "Consider with caution - some gaps in qualifications"
-            color = "yellow"
+        """Interpret overall match score"""
+        if score >= 0.80:
+            return {
+                'level': 'Excellent Match',
+                'recommendation': 'Highly recommended - proceed with application',
+                'color': 'green'
+            }
+        elif score >= 0.65:
+            return {
+                'level': 'Good Match',
+                'recommendation': 'Good candidate - consider applying',
+                'color': 'blue'
+            }
+        elif score >= 0.50:
+            return {
+                'level': 'Moderate Match',
+                'recommendation': 'Some gaps exist - address in cover letter',
+                'color': 'orange'
+            }
         else:
-            level = "Weak Match"
-            recommendation = "Not recommended - significant gaps in requirements"
-            color = "red"
-        
-        return {
-            'level': level,
-            'recommendation': recommendation,
-            'color': color
-        }
-
-
-# Convenience function
-def compute_match(cv_data: Dict, jd_data: Dict, 
-                 embedding_engine: Optional[EmbeddingEngine] = None) -> Dict:
-    """
-    Quick function to compute match score
-    
-    Args:
-        cv_data: Parsed CV data
-        jd_data: Parsed JD data
-        embedding_engine: Optional pre-initialized engine
-        
-    Returns:
-        Match score result dict
-    """
-    engine = ScoringEngine(embedding_engine)
-    return engine.compute_match_score(cv_data, jd_data)
+            return {
+                'level': 'Low Match',
+                'recommendation': 'Significant gaps - consider upskilling first',
+                'color': 'red'
+            }

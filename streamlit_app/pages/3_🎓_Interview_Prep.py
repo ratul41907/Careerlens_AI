@@ -236,7 +236,7 @@ if "Get Interview Questions" in mode:
         with st.spinner("🧠 Generating personalized interview questions..."):
             try:
                 interview_system = st.session_state.interview_system
-                questions = interview_system.get_recommended_questions(
+                questions = interview_system.generate_questions(
                     skills=skills,
                     num_questions=num_questions
                 )
