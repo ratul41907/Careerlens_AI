@@ -241,8 +241,10 @@ if "Get Interview Questions" in mode:
                     num_questions=num_questions
                 )
                 
-                st.success(f"✅ Generated {questions['total_questions']} questions across {len(questions['by_category'])} categories!")
-                
+                #st.success(f"✅ Generated {questions['total_questions']} questions across {len(questions['by_category'])} categories!")
+                # Get total questions safely
+                total_questions = len(questions.get('questions', []))
+                st.success(f"✅ Generated {total_questions} interview questions!")
                 # Display questions by category
                 st.markdown("### 📝 Your Interview Questions")
                 
