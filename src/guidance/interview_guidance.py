@@ -33,10 +33,10 @@ class InterviewGuidance:
                     "stream": False,
                     "options": {
                         "num_predict": max_tokens,
-                        "temperature": 0.8
+                        "temperature": 0.7
                     }
                 },
-                timeout=45
+                timeout=60
             )
             
             if response.status_code == 200:
@@ -45,52 +45,6 @@ class InterviewGuidance:
         except Exception as e:
             print(f"Ollama API error: {e}")
             return ""
-    
-    def _parse_questions(self, llm_response: str) -> List[Dict]:
-        """
-        Parse LLM response into structured questions
-        
-        Args:
-            llm_response: Raw LLM response
-            
-        Returns:
-            List of question dicts
-        """
-        questions = []
-        current_question = None
-        current_category = "General"
-        
-        lines = llm_response.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Detect category headers
-            line_lower = line.lower()
-            if 'behavioral' in line_lower or 'behavior' in line_lower:
-                current_category = "Behavioral"
-            elif 'technical' in line_lower:
-                current_category = "Technical"
-            elif 'coding' in line_lower or 'algorithm' in line_lower:
-                current_category = "Coding"
-            elif 'system design' in line_lower or 'architecture' in line_lower:
-                current_category = "System Design"
-            
-            # Extract questions (lines starting with number or bullet)
-            if line and (line[0].isdigit() or line.startswith(('-', '•', '*', 'Q:'))):
-                # Clean the question
-                clean_q = line.lstrip('0123456789.)•*-Q: ').strip()
-                
-                if clean_q and len(clean_q) > 20 and '?' in clean_q:
-                    questions.append({
-                        'question': clean_q,
-                        'category': current_category,
-                        'difficulty': 'Medium'
-                    })
-        
-        return questions
     
     def generate_questions(
         self,
@@ -113,121 +67,204 @@ class InterviewGuidance:
         Returns:
             Dict with questions and metadata
         """
-        # Build context
-        context_parts = []
-        
-        if skills:
-            context_parts.append(f"Skills to assess: {', '.join(skills[:10])}")
-        
-        if cv_data and cv_data.get('text'):
-            context_parts.append(f"Candidate's CV:\n{cv_data['text'][:1000]}")
-        
-        if jd_data and jd_data.get('text'):
-            context_parts.append(f"Job Description:\n{jd_data['text'][:1000]}")
-        
-        context = '\n\n'.join(context_parts) if context_parts else "General software engineering role"
-        
-        # Build prompt based on question type
-        if question_type == "behavioral":
-            type_instruction = f"Generate {num_questions} behavioral interview questions using the STAR method (Situation, Task, Action, Result). Focus on real scenarios."
-        elif question_type == "technical":
-            type_instruction = f"Generate {num_questions} technical interview questions about concepts, tools, and best practices."
-        elif question_type == "coding":
-            type_instruction = f"Generate {num_questions} coding/algorithm questions with clear problem statements."
-        elif question_type == "system_design":
-            type_instruction = f"Generate {num_questions} system design questions about architecture and scalability."
-        else:  # mixed
-            type_instruction = f"Generate {num_questions} interview questions: mix of behavioral ({num_questions//3}), technical ({num_questions//3}), and coding/system design ({num_questions//3})."
-        
-        prompt = f"""You are an expert technical interviewer. {type_instruction}
+        try:
+            # Build skills string
+            if skills and isinstance(skills, list):
+                skills_str = ', '.join(str(s) for s in skills[:10])
+            elif skills:
+                skills_str = str(skills)
+            else:
+                skills_str = "general software development"
+            
+            # Build prompt
+            prompt = f"""Generate {num_questions} interview questions for a candidate with these skills: {skills_str}
 
-Context:
-{context}
+Return ONLY a JSON array of questions in this exact format:
+[
+  {{
+    "question": "Tell me about a time when you had to debug a complex production issue",
+    "category": "Behavioral",
+    "difficulty": "Medium",
+    "hints": ["Focus on your problem-solving approach", "Explain the tools you used"]
+  }}
+]
 
 Requirements:
-- Make questions specific to the candidate's background and job requirements
-- Ensure questions test actual competency, not just theoretical knowledge
-- For behavioral: Use STAR framework
-- For technical: Focus on practical application
-- For coding: Provide clear problem statements
-- For system design: Ask about real-world scenarios
+- Generate exactly {num_questions} questions
+- Mix of categories: Behavioral, Technical, System Design
+- Each question must have: question, category, difficulty, hints
+- Return ONLY valid JSON array, no other text
 
-Format each question on a new line starting with a number.
-Organize by category with headers: BEHAVIORAL, TECHNICAL, CODING, SYSTEM DESIGN
+Generate the JSON array now:"""
 
-Generate the questions now:"""
-        
-        # Call LLM
-        llm_response = self._call_ollama(prompt, max_tokens=1500)
-        
-        if not llm_response:
-            # Fallback generic questions
-            fallback_questions = [
-                {
-                    'question': "Tell me about a challenging project you worked on and how you overcame obstacles.",
-                    'category': "Behavioral",
-                    'difficulty': "Medium"
+            # Call Ollama
+            response = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.7,
+                        "num_predict": 2000
+                    }
                 },
-                {
-                    'question': f"Explain how you would implement {skills[0] if skills else 'a web application'} in a production environment.",
-                    'category': "Technical",
-                    'difficulty': "Medium"
-                },
-                {
-                    'question': "Describe a time when you had to debug a critical production issue under time pressure.",
-                    'category': "Behavioral",
-                    'difficulty': "Medium"
-                },
-                {
-                    'question': "How would you design a scalable API that handles 1 million requests per day?",
-                    'category': "System Design",
-                    'difficulty': "Hard"
-                },
-                {
-                    'question': "Write a function to find the longest palindromic substring in a given string.",
-                    'category': "Coding",
-                    'difficulty': "Medium"
-                }
-            ]
+                timeout=60
+            )
             
-            return {
-                'success': True,
-                'questions': fallback_questions[:num_questions],
-                'total_questions': min(len(fallback_questions), num_questions),
-                'metadata': {
-                    'generated_by': 'fallback',
-                    'question_type': question_type
-                }
+            if response.status_code == 200:
+                result = response.json().get('response', '')
+                
+                # Clean response
+                result = result.strip()
+                
+                # Extract JSON
+                if '```json' in result:
+                    result = result.split('```json')[1].split('```')[0]
+                elif '```' in result:
+                    result = result.split('```')[1].split('```')[0]
+                
+                # Find JSON array
+                if '[' in result:
+                    result = result[result.index('['):result.rindex(']')+1]
+                
+                # Parse JSON
+                questions = json.loads(result)
+                
+                # Validate and ensure proper structure
+                validated_questions = []
+                for q in questions:
+                    if isinstance(q, dict) and 'question' in q:
+                        validated_questions.append({
+                            'question': q.get('question', 'No question'),
+                            'category': q.get('category', 'General'),
+                            'difficulty': q.get('difficulty', 'Medium'),
+                            'hints': q.get('hints', [])
+                        })
+                
+                if validated_questions:
+                    # Group by category for compatibility
+                    by_category = {}
+                    for q in validated_questions:
+                        category = q['category']
+                        if category not in by_category:
+                            by_category[category] = []
+                        by_category[category].append(q)
+                    
+                    # Preparation tips
+                    preparation_tips = [
+                        "Practice the STAR method for behavioral questions",
+                        "Review key concepts for your technical skills",
+                        "Prepare examples from your real work experience",
+                        "Research the company and role thoroughly"
+                    ]
+                    
+                    return {
+                        'success': True,
+                        'questions': validated_questions,
+                        'by_category': by_category,
+                        'total_questions': len(validated_questions),
+                        'preparation_tips': preparation_tips
+                    }
+            
+            # Fallback if LLM fails
+            return self._generate_fallback_questions(skills_str, num_questions)
+            
+        except Exception as e:
+            print(f"Error generating questions: {e}")
+            return self._generate_fallback_questions(skills if isinstance(skills, str) else "general", num_questions)
+    
+    def _generate_fallback_questions(self, skills_context: str, num_questions: int) -> Dict:
+        """Generate fallback questions if LLM fails"""
+        fallback_questions = [
+            {
+                'question': f"Tell me about a challenging project involving {skills_context} and how you overcame obstacles.",
+                'category': "Behavioral",
+                'difficulty': "Medium",
+                'hints': ["Use STAR method", "Focus on your specific actions"]
+            },
+            {
+                'question': f"Explain how you would implement {skills_context} in a production environment.",
+                'category': "Technical",
+                'difficulty': "Medium",
+                'hints': ["Consider scalability", "Discuss best practices"]
+            },
+            {
+                'question': "Describe a time when you had to debug a critical production issue under time pressure.",
+                'category': "Behavioral",
+                'difficulty': "Medium",
+                'hints': ["Explain your debugging process", "Show problem-solving skills"]
+            },
+            {
+                'question': "How would you design a scalable system that handles 1 million requests per day?",
+                'category': "System Design",
+                'difficulty': "Hard",
+                'hints': ["Discuss architecture patterns", "Consider bottlenecks"]
+            },
+            {
+                'question': "Describe your approach to writing clean, maintainable code.",
+                'category': "Technical",
+                'difficulty': "Easy",
+                'hints': ["Mention code reviews", "Discuss testing strategies"]
+            },
+            {
+                'question': "Tell me about a time you had to learn a new technology quickly.",
+                'category': "Behavioral",
+                'difficulty': "Easy",
+                'hints': ["Show learning ability", "Explain your process"]
+            },
+            {
+                'question': "How do you handle disagreements with team members about technical decisions?",
+                'category': "Behavioral",
+                'difficulty': "Medium",
+                'hints': ["Show collaboration skills", "Focus on outcomes"]
+            },
+            {
+                'question': "Explain the trade-offs between different architectural patterns you've used.",
+                'category': "System Design",
+                'difficulty': "Hard",
+                'hints': ["Compare microservices vs monolith", "Discuss real examples"]
+            },
+            {
+                'question': "What strategies do you use to ensure code quality in a fast-paced environment?",
+                'category': "Technical",
+                'difficulty': "Medium",
+                'hints': ["Mention CI/CD", "Discuss testing pyramid"]
+            },
+            {
+                'question': "Describe a time when you had to make a difficult trade-off decision.",
+                'category': "Behavioral",
+                'difficulty': "Medium",
+                'hints': ["Explain the constraints", "Show decision-making process"]
             }
+        ]
         
-        # Parse questions
-        questions = self._parse_questions(llm_response)
+        selected_questions = fallback_questions[:num_questions]
         
-        # Ensure we have enough questions
-        if len(questions) < num_questions:
-            # Add generic questions to fill
-            generic = [
-                {
-                    'question': "Describe your approach to writing clean, maintainable code.",
-                    'category': "Technical",
-                    'difficulty': "Medium"
-                },
-                {
-                    'question': "Tell me about a time you had to learn a new technology quickly.",
-                    'category': "Behavioral",
-                    'difficulty': "Easy"
-                }
-            ]
-            questions.extend(generic[:num_questions - len(questions)])
+        # Group by category
+        by_category = {}
+        for q in selected_questions:
+            category = q['category']
+            if category not in by_category:
+                by_category[category] = []
+            by_category[category].append(q)
+        
+        preparation_tips = [
+            "Practice the STAR method for behavioral questions",
+            "Review key concepts for your technical skills",
+            "Prepare examples from your real work experience",
+            "Research the company and role thoroughly"
+        ]
         
         return {
             'success': True,
-            'questions': questions[:num_questions],
-            'total_questions': len(questions[:num_questions]),
+            'questions': selected_questions,
+            'by_category': by_category,
+            'total_questions': len(selected_questions),
+            'preparation_tips': preparation_tips,
             'metadata': {
-                'generated_by': 'llm',
-                'question_type': question_type,
-                'skills_assessed': skills[:5] if skills else []
+                'generated_by': 'fallback',
+                'note': 'Using fallback questions - check Ollama connection'
             }
         }
     
@@ -248,7 +285,10 @@ Generate the questions now:"""
         Returns:
             Evaluation with score and feedback
         """
-        prompt = f"""You are an expert interviewer evaluating a candidate's answer.
+        try:
+            word_count = len(answer.split())
+            
+            prompt = f"""You are an expert interviewer evaluating a candidate's answer.
 
 Question: {question}
 Category: {category}
@@ -256,86 +296,121 @@ Category: {category}
 Candidate's Answer:
 {answer}
 
-Evaluate this answer and provide:
+Evaluate this answer and return ONLY a JSON object:
+{{
+  "score": 75,
+  "rating": "Good",
+  "strengths": ["Clear structure", "Good examples"],
+  "weaknesses": ["Could add more metrics", "Missing context"],
+  "suggestions": ["Quantify results", "Add more technical detail"]
+}}
 
-1. SCORE (0-100)
-Rate the answer quality considering:
-- Completeness (did they answer the question?)
-- Clarity (is it well-structured and easy to follow?)
-- Depth (do they show real understanding?)
-- Examples (do they provide concrete examples?)
+Scoring criteria:
+- 90-100: Excellent (complete, clear, with great examples)
+- 75-89: Good (solid answer with some examples)
+- 60-74: Acceptable (answers question but lacks depth)
+- Below 60: Needs improvement (incomplete or unclear)
 
-2. STRENGTHS
-What did the candidate do well? (2-3 bullet points)
+Return ONLY the JSON object:"""
 
-3. WEAKNESSES
-What could be improved? (2-3 bullet points)
-
-4. SUGGESTIONS
-How can they improve their answer? (2-3 specific suggestions)
-
-5. STAR ANALYSIS (if behavioral question)
-- Situation: Did they set context?
-- Task: Was the challenge clear?
-- Action: Did they explain what THEY did?
-- Result: Did they show measurable outcomes?
-
-Provide your evaluation:"""
-        
-        llm_response = self._call_ollama(prompt, max_tokens=1000)
-        
-        if not llm_response:
+            response = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.3,
+                        "num_predict": 500
+                    }
+                },
+                timeout=45
+            )
+            
+            if response.status_code == 200:
+                result = response.json().get('response', '')
+                
+                # Clean and parse
+                result = result.strip()
+                if '```json' in result:
+                    result = result.split('```json')[1].split('```')[0]
+                elif '```' in result:
+                    result = result.split('```')[1].split('```')[0]
+                
+                if '{' in result:
+                    result = result[result.index('{'):result.rindex('}')+1]
+                
+                evaluation = json.loads(result)
+                
+                # Ensure proper structure
+                score = evaluation.get('score', 70)
+                rating = evaluation.get('rating', 'Good')
+                
+                # Build breakdown
+                breakdown = {
+                    'situation': {'score': score // 4, 'max_score': 25},
+                    'task': {'score': score // 4, 'max_score': 25},
+                    'action': {'score': score // 4, 'max_score': 25},
+                    'result': {'score': score // 4, 'max_score': 25},
+                    'length': {
+                        'word_count': word_count,
+                        'score': min(20, word_count // 10),
+                        'status': '✅ Good length' if 150 <= word_count <= 400 else '⚠️ Check length'
+                    }
+                }
+                
+                return {
+                    'overall_score': score,
+                    'rating': rating,
+                    'breakdown': breakdown,
+                    'feedback': evaluation.get('strengths', []) + evaluation.get('weaknesses', []),
+                    'suggestions': evaluation.get('suggestions', [])
+                }
+            
             # Fallback evaluation
-            word_count = len(answer.split())
+            return self._fallback_evaluation(word_count, answer)
             
-            if word_count < 50:
-                score = 40
-                feedback = "Answer is too brief. Provide more detail and examples."
-            elif word_count < 150:
-                score = 60
-                feedback = "Good start. Add more specific examples and measurable outcomes."
-            elif word_count < 400:
-                score = 75
-                feedback = "Well-structured answer. Consider adding more depth to key points."
-            else:
-                score = 85
-                feedback = "Comprehensive answer with good detail."
-            
-            return {
-                'score': score,
-                'feedback': feedback,
-                'word_count': word_count,
-                'rating': 'Good' if score >= 70 else 'Needs Improvement'
-            }
-        
-        # Parse score from LLM response
-        score = 70  # default
-        try:
-            for line in llm_response.split('\n'):
-                if 'score' in line.lower() and any(c.isdigit() for c in line):
-                    # Extract number
-                    numbers = ''.join(c for c in line if c.isdigit())
-                    if numbers:
-                        score = min(100, int(numbers[:2]))  # Take first 2 digits, cap at 100
-                        break
-        except:
-            pass
-        
-        # Determine rating
-        if score >= 90:
-            rating = "Excellent"
-        elif score >= 75:
-            rating = "Good"
-        elif score >= 60:
-            rating = "Acceptable"
-        else:
+        except Exception as e:
+            print(f"Error evaluating answer: {e}")
+            return self._fallback_evaluation(len(answer.split()), answer)
+    
+    def _fallback_evaluation(self, word_count: int, answer: str) -> Dict:
+        """Fallback evaluation if LLM fails"""
+        if word_count < 50:
+            score = 40
             rating = "Needs Improvement"
+            feedback = ["Answer is too brief", "Add more detail and examples"]
+        elif word_count < 150:
+            score = 65
+            rating = "Acceptable"
+            feedback = ["Good start", "Could add more specific examples"]
+        elif word_count < 400:
+            score = 80
+            rating = "Good"
+            feedback = ["Well-structured answer", "Good level of detail"]
+        else:
+            score = 75
+            rating = "Good"
+            feedback = ["Comprehensive answer", "Consider being more concise"]
+        
+        breakdown = {
+            'situation': {'score': score // 4, 'max_score': 25},
+            'task': {'score': score // 4, 'max_score': 25},
+            'action': {'score': score // 4, 'max_score': 25},
+            'result': {'score': score // 4, 'max_score': 25},
+            'length': {
+                'word_count': word_count,
+                'score': min(20, word_count // 10),
+                'status': '✅ Good length' if 150 <= word_count <= 400 else '⚠️ Check length'
+            }
+        }
         
         return {
-            'score': score,
+            'overall_score': score,
             'rating': rating,
-            'feedback': llm_response,
-            'word_count': len(answer.split())
+            'breakdown': breakdown,
+            'feedback': feedback,
+            'suggestions': ["Add more specific examples", "Quantify your results"]
         }
 
 
