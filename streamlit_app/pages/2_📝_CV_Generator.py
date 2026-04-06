@@ -209,9 +209,21 @@ st.markdown("---")
 if "Manual Entry" in generation_mode:
     st.info("💡 Fill in your information below. Required fields are marked with *")
     
-    # Create tabs for organized input
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 Personal Info", "💼 Experience", "🎓 Education & Skills", "🎨 Projects"])
+    # ADD JD Input for optimization
+    st.markdown("### 🎯 Target Job Description (Optional)")
+    st.info("💡 Provide a job description to optimize your CV with relevant keywords and skills")
     
+    manual_jd_text = st.text_area(
+        "Paste job description to optimize CV",
+        height=150,
+        placeholder="Paste the job description here to generate a CV optimized for this role...",
+        key="manual_jd_input"
+    )
+    
+    st.markdown("---")
+    
+    # Create tabs for organized input
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 Personal Info", "💼 Experience", "🎓 Education & Skills", "🎨 Projects"])    
     # TAB 1: Personal Information
     with tab1:
         st.markdown("### 📋 Personal Information")
