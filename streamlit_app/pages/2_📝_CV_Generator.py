@@ -27,7 +27,7 @@ from src.parsers.cv_parser import CVParser
 from src.parsers.jd_parser import JDParser
 from src.embeddings.embedding_engine import EmbeddingEngine
 from src.scoring.scoring_engine import ScoringEngine
-
+from src.generation.cv_optimizer import CVOptimizer
 # Page config
 #st.set_page_config(
  #   page_title="CV Generator - CareerLens AI",
@@ -1086,178 +1086,182 @@ elif "Improve Existing CV" in generation_mode:
         with col_btn2:
             if st.button("✨ Analyze & Improve CV", type="primary", use_container_width=True):
                 progress_bar = st.progress(0)
-                status_text = st.empty()
+        status_text = st.empty()
+        
+        try:
+            # Step 1: Parse existing CV
+            status_text.info("📄 **Step 1/5:** Analyzing your current CV...")
+            progress_bar.progress(20)
+            
+            from src.parsers.cv_parser import CVParser
+            from src.parsers.jd_parser import JDParser
+            
+            cv_parser = CVParser()
+            jd_parser = JDParser()
+            
+            # Parse CV
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{existing_cv.name.split('.')[-1]}") as tmp:
+                tmp.write(existing_cv.read())
+                tmp_path = tmp.name
+            
+            cv_data = cv_parser.parse(tmp_path)
+            os.unlink(tmp_path)
+            
+            if isinstance(cv_data, str):
+                cv_data = {'text': cv_data, 'sections': {}}
+            
+            st.success("✅ CV parsed successfully")
+            time.sleep(0.3)
+            
+            # Step 2: Parse JD if provided
+            jd_skills = []
+            if target_jd and target_jd.strip():
+                status_text.info("💼 **Step 2/5:** Analyzing job requirements...")
+                progress_bar.progress(40)
                 
-                try:
-                    # Step 1: Parse existing CV
-                    status_text.info("📄 **Step 1/3:** Analyzing your current CV...")
-                    progress_bar.progress(33)
-                    
-                    from src.parsers.cv_parser import CVParser
-                    from src.parsers.jd_parser import JDParser
-                    from src.validation.cv_analyzer import CVAnalyzer
-                    
-                    cv_parser = CVParser()
-                    jd_parser = JDParser()
-                    
-                    # Parse CV
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{existing_cv.name.split('.')[-1]}") as tmp:
-                        tmp.write(existing_cv.read())
-                        tmp_path = tmp.name
-                    
-                    cv_data = cv_parser.parse(tmp_path)
-                    os.unlink(tmp_path)
-                    
-                    # Ensure cv_data is a dict
-                    if isinstance(cv_data, str):
-                        cv_data = {
-                            'text': cv_data,
-                            'sections': {
-                                'experience': cv_data,
-                                'skills': '',
-                                'education': ''
-                            }
-                        }
-                    
-                    st.success("✅ CV parsed successfully")
-                    time.sleep(0.3)
-                    
-                    # Step 2: Parse JD if provided
-                    jd_data = None
-                    if target_jd and target_jd.strip():
-                        jd_data = jd_parser.parse(target_jd)
-                        
-                        if isinstance(jd_data, str):
-                            jd_data = {
-                                'text': jd_data,
-                                'required_skills': [],
-                                'preferred_skills': []
-                            }
-                    
-                    # Step 3: Analyze CV
-                    status_text.info("🔍 **Step 2/3:** Identifying improvement opportunities...")
-                    progress_bar.progress(66)
-                    
-                    analyzer = CVAnalyzer()
-                    
-                    # CORRECT METHOD: analyze_cv (not improve_cv)
-                    analysis = analyzer.analyze_cv(cv_data, jd_data)
-                    
-                    st.success(f"✅ Found {analysis['total_issues']} improvement opportunities")
-                    time.sleep(0.3)
-                    
-                    # Step 4: Display results
-                    status_text.success("✨ **Analysis complete!**")
-                    progress_bar.progress(100)
-                    time.sleep(0.5)
-                    
-                    progress_bar.empty()
-                    status_text.empty()
-                    
-                    # Display analysis results
-                    st.markdown("---")
-                    st.markdown("### 📊 CV Analysis Results")
-                    
-                    # Score metrics
-                    score_col1, score_col2, score_col3 = st.columns(3)
-                    
-                    with score_col1:
-                        st.metric("Overall Score", f"{analysis['score']}/100")
-                    with score_col2:
-                        st.metric("Grade", analysis['grade'])
-                    with score_col3:
-                        st.metric("Issues Found", analysis['total_issues'])
-                    
-                    st.info(analysis['summary'])
-                    
-                    # Issues breakdown
-                    if analysis['total_issues'] > 0:
-                        st.markdown("---")
-                        st.markdown("#### 🔍 Issues Found")
-                        
-                        issue_categories = {
-                            'weak_bullets': '💪 Weak Action Verbs',
-                            'missing_metrics': '📊 Missing Metrics',
-                            'vague_descriptions': '🎯 Vague Descriptions',
-                            'ats_compatibility': '🤖 ATS Issues',
-                            'formatting': '📝 Formatting Issues'
-                        }
-                        
-                        for category, title in issue_categories.items():
-                            issues = analysis['issues'].get(category, [])
-                            if issues:
-                                with st.expander(f"{title} ({len(issues)} found)", expanded=False):
-                                    for idx, issue in enumerate(issues, 1):
-                                        st.warning(f"**Issue {idx}:** {issue.get('issue', 'N/A')}")
-                                        if 'text' in issue:
-                                            st.code(issue['text'], language=None)
-                                        if 'suggestion' in issue:
-                                            st.success(f"💡 **Suggestion:** {issue['suggestion']}")
-                                        if idx < len(issues):
-                                            st.markdown("---")
-                    
-                    # Improvements
-                    if analysis['improvements']:
-                        st.markdown("---")
-                        st.markdown("#### ✨ Recommended Improvements")
-                        
-                        for improvement in analysis['improvements']:
-                            priority_color = {
-                                'Critical': '🔴',
-                                'High': '🟠',
-                                'Medium': '🟡',
-                                'Low': '🟢'
-                            }
-                            
-                            priority_icon = priority_color.get(improvement['priority'], '⚪')
-                            
-                            with st.expander(f"{priority_icon} {improvement['title']} ({improvement['priority']} Priority)", expanded=True):
-                                st.markdown(f"**Category:** {improvement['category']}")
-                                st.markdown(f"**Description:** {improvement['description']}")
-                                
-                                if improvement.get('examples'):
-                                    st.markdown("**Examples:**")
-                                    for example in improvement['examples']:
-                                        st.markdown(f"- {example}")
-                    
-                    # Action buttons
-                    st.markdown("---")
-                    st.markdown("#### 🎯 Next Steps")
-                    
-                    st.info("""
-                    **How to use these insights:**
-                    1. Review each issue and suggestion above
-                    2. Manually update your CV based on recommendations
-                    3. Use 'Manual Entry' or 'Extract from Documents' mode to regenerate
-                    4. Match your improved CV against the job to see score improvement
-                    """)
-                    
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        if st.button("📝 Manual Entry Mode", key="goto_manual", use_container_width=True):
-                            st.session_state.generation_mode = "📝 Manual Entry"
-                            st.rerun()
-                    
-                    with col2:
-                        if st.button("📄 Extract Mode", key="goto_extract", use_container_width=True):
-                            st.session_state.generation_mode = "📄 Extract from Documents"
-                            st.rerun()
-                    
-                    with col3:
-                        if st.button("📊 Match Against Job", key="goto_matcher", use_container_width=True):
-                            st.switch_page("pages/1_📊_CV_Matcher.py")
-                    
-                    st.success("✅ Use the improvements above to update your CV manually, then regenerate!")
+                jd_parsed = jd_parser.parse(target_jd)
                 
-                except Exception as e:
-                    progress_bar.empty()
-                    status_text.empty()
-                    st.error(f"❌ **Analysis failed**")
-                    st.error(f"Error: {str(e)}")
-                    with st.expander("🔧 Debug Info"):
-                        import traceback
-                        st.code(traceback.format_exc())
+                if isinstance(jd_parsed, dict):
+                    jd_sections = jd_parsed.get('sections', jd_parsed)
+                    for key in ['required_skills', 'skills', 'technical_skills']:
+                        if key in jd_sections:
+                            skill_data = jd_sections[key]
+                            if isinstance(skill_data, list):
+                                jd_skills = skill_data
+                                break
+                            elif isinstance(skill_data, str):
+                                jd_skills = [s.strip() for s in skill_data.split(',') if s.strip()]
+                                break
+                
+                st.success(f"✅ Found {len(jd_skills)} required skills in JD")
+            else:
+                st.info("ℹ️ No JD provided - improving CV generally")
+                progress_bar.progress(40)
+            
+            time.sleep(0.3)
+            
+            # Step 3: Extract & Optimize
+            status_text.info("📊 **Step 3/5:** Extracting and optimizing information...")
+            progress_bar.progress(60)
+            
+            cv_text = cv_data.get('text', '')
+            cv_sections = cv_data.get('sections', {})
+            
+            # Extract contact info
+            email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', cv_text)
+            extracted_email = email_match.group(0) if email_match else 'your.email@example.com'
+            
+            phone_match = re.search(r'[\+\(]?[0-9][0-9\s\-\(\)]{7,}[0-9]', cv_text)
+            extracted_phone = phone_match.group(0) if phone_match else '+1-234-567-8900'
+            
+            extracted_name = cv_sections.get('name', '') or (cv_text.split('\n')[0].strip()[:50] if cv_text else 'Your Name')
+            
+            # Extract skills
+            cv_skills = []
+            for key in ['skills', 'technical_skills']:
+                if key in cv_sections:
+                    skill_data = cv_sections[key]
+                    if isinstance(skill_data, list):
+                        cv_skills = skill_data
+                        break
+                    elif isinstance(skill_data, str):
+                        cv_skills = [s.strip() for s in skill_data.split(',') if s.strip()]
+                        break
+            
+            # Optimize skills
+            if jd_skills:
+                matched_skills = [s for s in cv_skills if any(jd_skill.lower() in s.lower() or s.lower() in jd_skill.lower() for jd_skill in jd_skills)]
+                other_skills = [s for s in cv_skills if s not in matched_skills]
+                missing_jd_skills = [s for s in jd_skills if not any(s.lower() in cv_skill.lower() for cv_skill in cv_skills)]
+                optimized_skills = matched_skills + other_skills + missing_jd_skills[:8]
+            else:
+                optimized_skills = cv_skills
+            
+            st.success("✅ Information extracted and optimized")
+            time.sleep(0.3)
+            
+            # Step 4: Generate improved CV
+            status_text.info("✨ **Step 4/5:** Generating improved CV...")
+            progress_bar.progress(80)
+            
+            enhanced_summary = f"Professional with expertise in {', '.join((matched_skills if jd_skills else optimized_skills)[:5])}."
+            
+            personal_info = {
+                'name': extracted_name,
+                'email': extracted_email,
+                'phone': extracted_phone,
+                'summary': enhanced_summary
+            }
+            
+            generator = CVGenerator()
+            doc = generator.generate_cv(
+                personal_info=personal_info,
+                skills=optimized_skills[:20]
+            )
+            
+            # Save
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"CV_Improved_{timestamp}.docx"
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                doc.save(tmp.name)
+                with open(tmp.name, 'rb') as f:
+                    cv_bytes = f.read()
+            os.unlink(tmp.name)
+            
+            st.session_state.cv_bytes_docx = cv_bytes
+            st.session_state.filename = filename
+            
+            # Generate HTML preview
+            try:
+                import mammoth
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                    tmp.write(cv_bytes)
+                    with open(tmp.name, 'rb') as f:
+                        result = mammoth.convert_to_html(f)
+                        st.session_state.cv_html = result.value
+                os.unlink(tmp.name)
+            except:
+                st.session_state.cv_html = None
+            
+            # Step 5: Show results
+            status_text.info("📋 **Step 5/5:** Showing optimization results...")
+            progress_bar.progress(95)
+            
+            if jd_skills:
+                st.markdown("### 🎯 Optimization Results")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Matched Skills", len(matched_skills))
+                with col2:
+                    st.metric("Skills Added", len(missing_jd_skills[:8]))
+                with col3:
+                    st.metric("Total Skills", len(optimized_skills[:20]))
+                
+                st.success("• Matched skills prioritized first")
+                st.success("• Missing JD skills added")
+                st.success("• Summary enhanced with job keywords")
+            else:
+                st.success("• CV reformatted and optimized for ATS")
+            
+            progress_bar.progress(100)
+            status_text.success("✅ **Improved CV generated successfully!**")
+            time.sleep(0.5)
+            
+            progress_bar.empty()
+            status_text.empty()
+            
+            st.success("✅ Your improved CV is ready!")
+            st.balloons()
+            
+        except Exception as e:
+            progress_bar.empty()
+            status_text.empty()
+            st.error(f"❌ **CV improvement failed**")
+            st.error(f"Error: {str(e)}")
+            with st.expander("🔧 Debug Info"):
+                import traceback
+                st.code(traceback.format_exc())
     
     else:
         st.info("📤 Upload your CV above to get started with AI-powered analysis!")
