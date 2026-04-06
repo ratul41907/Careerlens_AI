@@ -466,40 +466,29 @@ if "Manual Entry" in generation_mode:
                 'summary': summary if summary else None
             }
             
-            # === NEW: JD OPTIMIZATION ===
+            # LLM-Powered JD Optimization
             if manual_jd_text and manual_jd_text.strip():
-                status_text.info("🎯 **Step 2/4:** Optimizing CV for target job description...")
-                progress_bar.progress(50)
+                status_text.info("🤖 **Step 2/4:** AI is optimizing your CV for the job...")
+                progress_bar.progress(45)
                 
-                jd_parser = JDParser()
-                jd_parsed = jd_parser.parse(manual_jd_text)
+                optimizer = CVOptimizer()
+                optimization = optimizer.optimize_manual_cv_for_jd(
+                    personal_info=personal_info,
+                    experiences=experiences,
+                    education=education,
+                    skills=skills,
+                    jd_text=manual_jd_text
+                )
                 
-                jd_skills = []
-                if isinstance(jd_parsed, dict):
-                    jd_sections = jd_parsed.get('sections', {}) if 'sections' in jd_parsed else jd_parsed
-                    for key in ['required_skills', 'skills', 'technical_skills']:
-                        if key in jd_sections:
-                            skill_data = jd_sections[key]
-                            if isinstance(skill_data, list):
-                                jd_skills = skill_data
-                                break
-                            elif isinstance(skill_data, str):
-                                jd_skills = [s.strip() for s in skill_data.split(',') if s.strip()]
-                                break
+                # Apply LLM results
+                skills = optimization['prioritized_skills'][:20]
                 
-                # Optimize skills: put matching skills first
-                if jd_skills and skills:
-                    matched_user_skills = [s for s in skills if any(jd_skill.lower() in s.lower() or s.lower() in jd_skill.lower() for jd_skill in jd_skills)]
-                    other_user_skills = [s for s in skills if s not in matched_user_skills]
-                    skills = matched_user_skills + other_user_skills
-                    
-                    st.success(f"✅ Optimized with {len(matched_user_skills)} JD-matched skills prioritized")
+                if optimization.get('optimized_summary'):
+                    personal_info['summary'] = optimization['optimized_summary']
                 
-                # Auto-enhance summary if none provided
-                if (not summary or len(summary) < 50) and jd_skills:
-                    personal_info['summary'] = f"Professional with expertise in {', '.join(jd_skills[:5])}. Seeking opportunities to leverage skills in {jd_skills[0] if jd_skills else 'technology'}."
-                
-                time.sleep(0.3)
+                matched_count = len(optimization.get('matched_skills', []))
+                st.success(f"✅ AI optimized: {matched_count} skills matched & summary improved")
+                time.sleep(0.5)
             
             status_text.info("🎨 **Step 3/4:** Generating professional CV with ATS optimization...")
             progress_bar.progress(75)
@@ -1086,7 +1075,7 @@ elif "Improve Existing CV" in generation_mode:
         with col_btn2:
             if st.button("✨ Analyze & Improve CV", type="primary", use_container_width=True):
                 progress_bar = st.progress(0)
-        status_text = st.empty()
+                status_text = st.empty()
         
         try:
             # Step 1: Parse existing CV
