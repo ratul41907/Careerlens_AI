@@ -1021,6 +1021,61 @@ if match_result and 'breakdown' in match_result:
         if st.button("🎓 Interview Prep", use_container_width=True):
             st.switch_page("pages/3_🎓_Interview_Prep.py")
 
+# ADD THIS SECTION after displaying match results
+st.markdown("---")
+st.markdown("### 🤖 AI-Powered Insights")
+
+if st.button("🧠 Get AI Analysis", use_container_width=True):
+    with st.spinner("🤖 AI is analyzing your match..."):
+        try:
+            from src.generation.cv_optimizer import CVOptimizer
+            
+            optimizer = CVOptimizer()
+            
+            # Get CV and JD text
+            cv_text = st.session_state.cv_data.get('text', '')
+            jd_text = st.session_state.jd_data.get('text', '')
+            
+            # Get missing skills
+            missing_skills = []
+            for skill in match_result['breakdown']['required_skills']['details']['skills']:
+                if not skill['matched']:
+                    missing_skills.append(skill['skill'])
+            
+            # Call LLM for insights
+            prompt = f"""Analyze this CV-JD match and provide actionable advice.
+
+Match Score: {match_result['overall_percentage']}
+Missing Skills: {', '.join(missing_skills[:5])}
+
+Provide:
+1. Top 3 strengths in the CV
+2. Top 3 gaps to address
+3. Quick wins to improve match score
+
+Keep response under 200 words, bullet points."""
+
+            import requests
+            response = requests.post(
+                "http://localhost:11434/api/generate",
+                json={
+                    "model": "gemma2:2b",
+                    "prompt": prompt,
+                    "stream": False
+                },
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                ai_insights = response.json().get('response', '')
+                st.success("✅ AI Analysis Complete!")
+                st.markdown(ai_insights)
+            else:
+                st.warning("⚠️ AI analysis unavailable. Ollama not running.")
+                
+        except Exception as e:
+            st.warning(f"⚠️ AI analysis unavailable: {str(e)}")
+
 # DAY 23 FEATURE: Cache Control
 if st.checkbox("🔧 Show Performance Tools", value=False):
     st.markdown("### 🛠️ Performance Tools")
