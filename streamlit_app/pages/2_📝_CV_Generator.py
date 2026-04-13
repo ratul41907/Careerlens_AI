@@ -964,9 +964,19 @@ elif "Extract from Documents" in generation_mode:
                 st.warning(f"Error: {str(e)}")
     
     # Generate button if data extracted
+    # Generate button if data extracted
     if st.session_state.get('ready_to_generate_from_docs', False):
         st.markdown("---")
-        st.markdown("### ✏️ Quick Edits (Optional)")
+        st.markdown("### 🎯 Optimize for Job Description (Optional)")
+        
+        doc_jd_text = st.text_area(
+            "Paste target job description",
+            height=150,
+            placeholder="Paste JD to optimize extracted data for a specific role...",
+            key="doc_jd_optimization"
+        )
+        
+        st.markdown("### ✏️ Personal Information")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -979,53 +989,113 @@ elif "Extract from Documents" in generation_mode:
         
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("📝 Generate CV", type="primary", use_container_width=True):
-                with st.spinner("📝 Generating CV..."):
-                    try:
-                        extracted = st.session_state.extracted_data
+            if st.button("📝 Generate Optimized CV", type="primary", use_container_width=True):
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                try:
+                    status_text.info("📊 **Step 1/3:** Processing extracted data...")
+                    progress_bar.progress(33)
+                    
+                    extracted = st.session_state.extracted_data
+                    
+                    # Extract skills
+                    all_skills = list(set(extracted.get('skills', [])))
+                    
+                    # LLM Optimization if JD provided
+                    if doc_jd_text and doc_jd_text.strip():
+                        status_text.info("🤖 **Step 2/3:** AI is optimizing for job description...")
+                        progress_bar.progress(66)
                         
-                        personal_info = {
-                            'name': doc_name if doc_name else 'Your Name',
-                            'email': doc_email if doc_email else 'email@example.com',
-                            'phone': doc_phone if doc_phone else '+1-234-567-8900'
-                        }
-                        
-                        generator = CVGenerator()
-                        doc = generator.generate_cv(
-                            personal_info=personal_info,
-                            skills=extracted.get('skills', [])[:20],
-                            certifications=extracted.get('certifications', [])[:10]
-                        )
-                        
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        filename = f"CV_From_Documents_{timestamp}.docx"
-                        
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                            doc.save(tmp.name)
-                            with open(tmp.name, 'rb') as f:
-                                cv_bytes = f.read()
-                        os.unlink(tmp.name)
-                        
-                        st.session_state.cv_bytes_docx = cv_bytes
-                        st.session_state.filename = filename
-                        
-                        # Preview
                         try:
-                            import mammoth
-                            with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                                tmp.write(cv_bytes)
-                                with open(tmp.name, 'rb') as f:
-                                    result = mammoth.convert_to_html(f)
-                                    st.session_state.cv_html = result.value
-                            os.unlink(tmp.name)
-                        except:
-                            st.session_state.cv_html = None
-                        
-                        st.success("✅ CV generated!")
-                        st.balloons()
-                        
-                    except Exception as e:
-                        st.error(f"❌ Generation failed: {str(e)}")
+                            from src.generation.cv_optimizer import CVOptimizer
+                            
+                            optimizer = CVOptimizer()
+                            
+                            # Build CV summary from extracted data
+                            cv_summary = f"""
+Skills: {', '.join(all_skills[:20])}
+Education: {extracted.get('education', [])}
+Certifications: {extracted.get('certifications', [])}
+"""
+                            
+                            # Use LLM to optimize
+                            improvement = optimizer.improve_existing_cv_with_jd(
+                                cv_text=cv_summary,
+                                cv_skills=all_skills,
+                                jd_text=doc_jd_text
+                            )
+                            
+                            # Use optimized results
+                            final_skills = improvement['optimized_skill_order'][:20]
+                            summary_text = improvement['enhanced_professional_summary']
+                            
+                            st.success(f"✅ AI optimized: {len(improvement['matched_skills'])} skills matched!")
+                            
+                        except Exception as e:
+                            st.warning(f"⚠️ LLM unavailable, using basic optimization")
+                            final_skills = all_skills[:20]
+                            summary_text = f"Professional with expertise in {', '.join(all_skills[:3])}."
+                    else:
+                        final_skills = all_skills[:20]
+                        summary_text = f"Professional with expertise in {', '.join(all_skills[:3])}."
+                    
+                    status_text.info("✨ **Step 3/3:** Generating CV...")
+                    progress_bar.progress(90)
+                    
+                    personal_info = {
+                        'name': doc_name if doc_name else 'Your Name',
+                        'email': doc_email if doc_email else 'email@example.com',
+                        'phone': doc_phone if doc_phone else '+1-234-567-8900',
+                        'summary': summary_text
+                    }
+                    
+                    generator = CVGenerator()
+                    doc = generator.generate_cv(
+                        personal_info=personal_info,
+                        skills=final_skills,
+                        certifications=extracted.get('certifications', [])[:10]
+                    )
+                    
+                    # Save
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"CV_From_Documents_{timestamp}.docx"
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                        doc.save(tmp.name)
+                        with open(tmp.name, 'rb') as f:
+                            cv_bytes = f.read()
+                    os.unlink(tmp.name)
+                    
+                    st.session_state.cv_bytes_docx = cv_bytes
+                    st.session_state.filename = filename
+                    
+                    # Preview
+                    try:
+                        import mammoth
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                            tmp.write(cv_bytes)
+                            with open(tmp.name, 'rb') as f:
+                                result = mammoth.convert_to_html(f)
+                                st.session_state.cv_html = result.value
+                        os.unlink(tmp.name)
+                    except:
+                        st.session_state.cv_html = None
+                    
+                    progress_bar.progress(100)
+                    status_text.success("✅ CV generated successfully!")
+                    time.sleep(0.5)
+                    
+                    progress_bar.empty()
+                    status_text.empty()
+                    
+                    st.success("✅ CV generated and optimized!")
+                    st.balloons()
+                    
+                except Exception as e:
+                    progress_bar.empty()
+                    status_text.empty()
+                    st.error(f"❌ Generation failed: {str(e)}")
 
 # ============================================================================
 # MODE 4: IMPROVE EXISTING CV
