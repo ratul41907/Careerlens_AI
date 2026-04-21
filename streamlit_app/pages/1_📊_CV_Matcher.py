@@ -37,6 +37,45 @@ sys.path.insert(0, str(utils_path))
 from mobile_styles import inject_mobile_styles
 inject_mobile_styles()
 
+# FIX: Force responsive layout on Cloudflare
+st.markdown("""
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+    /* Force container width on desktop */
+    .main .block-container {
+        max-width: 100% !important;
+        padding-left: 5rem !important;
+        padding-right: 5rem !important;
+    }
+    
+    /* Mobile override */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+    }
+    
+    /* Fix Cloudflare font rendering */
+    * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+    }
+    
+    /* Prevent layout shift */
+    .stApp {
+        min-height: 100vh;
+    }
+    
+    /* Fix column widths on desktop */
+    [data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Accessibility - Day 26
 from accessibility import AccessibilityHelper
 accessibility = AccessibilityHelper()

@@ -17,7 +17,7 @@ st.set_page_config(
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils.mobile_styles import inject_mobile_styles
+#from utils.mobile_styles import inject_mobile_styles
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -27,7 +27,48 @@ from src.guidance.interview_guidance import InterviewGuidance
 
 # Page config
 
+# Mobile responsiveness - Day 25
+from mobile_styles import inject_mobile_styles
 inject_mobile_styles()
+
+# FIX: Force responsive layout on Cloudflare
+st.markdown("""
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+    /* Force container width on desktop */
+    .main .block-container {
+        max-width: 100% !important;
+        padding-left: 5rem !important;
+        padding-right: 5rem !important;
+    }
+    
+    /* Mobile override */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+    }
+    
+    /* Fix Cloudflare font rendering */
+    * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+    }
+    
+    /* Prevent layout shift */
+    .stApp {
+        min-height: 100vh;
+    }
+    
+    /* Fix column widths on desktop */
+    [data-testid="column"] {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 # Dark theme CSS
 st.markdown("""
 <style>
