@@ -681,7 +681,11 @@ if st.session_state.match_result:
     # # ===================================================================
 # SKILL BREAKDOWN DISPLAY
 # ===================================================================
-if match_result and 'breakdown' in match_result:
+# ===================================================================
+# SKILL BREAKDOWN DISPLAY
+# ===================================================================
+if st.session_state.match_result and 'breakdown' in st.session_state.match_result:
+    match_result = st.session_state.match_result
     st.markdown("---")
     st.markdown("### 🔍 Detailed Match Breakdown")
     
