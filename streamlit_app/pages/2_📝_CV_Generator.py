@@ -204,6 +204,94 @@ generation_mode = st.radio(
 st.markdown("---")
 
 # ============================================================================
+# SHARED HELPER FUNCTION FOR DOWNLOADS (used by all 4 modes)
+# ============================================================================
+def render_download_section(mode_key):
+    """Renders DOCX + PDF download buttons. mode_key must be unique per mode."""
+    st.markdown("---")
+    st.markdown("### 📥 Download Your CV")
+
+    col_dl1, col_dl2 = st.columns(2)
+
+    with col_dl1:
+        st.download_button(
+            label="📄 Download DOCX",
+            data=st.session_state.cv_bytes_docx,
+            file_name=st.session_state.filename,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+            key=f"docx_dl_{mode_key}"
+        )
+
+    with col_dl2:
+        if st.button("🔄 Generate PDF", use_container_width=True, key=f"gen_pdf_{mode_key}"):
+            with st.spinner("Converting to PDF..."):
+                tmp_docx = None
+                tmp_pdf = None
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+                        tmp.write(st.session_state.cv_bytes_docx)
+                        tmp_docx = tmp.name
+
+                    tmp_pdf = tmp_docx.replace('.docx', '.pdf')
+
+                    # Try LibreOffice first (works on Linux / Streamlit Cloud)
+                    try:
+                        result = subprocess.run(
+                            ['libreoffice', '--headless', '--convert-to', 'pdf',
+                             '--outdir', tempfile.gettempdir(), tmp_docx],
+                            capture_output=True, timeout=30
+                        )
+                        if result.returncode == 0 and os.path.exists(tmp_pdf):
+                            with open(tmp_pdf, 'rb') as f:
+                                st.session_state.cv_bytes_pdf = f.read()
+                            os.unlink(tmp_docx)
+                            os.unlink(tmp_pdf)
+                            st.success("✅ PDF ready!")
+                            st.rerun()
+                        else:
+                            raise Exception("LibreOffice conversion failed")
+                    except Exception:
+                        # Fallback: try docx2pdf (requires MS Word)
+                        try:
+                            from docx2pdf import convert
+                            convert(tmp_docx, tmp_pdf)
+                            with open(tmp_pdf, 'rb') as f:
+                                st.session_state.cv_bytes_pdf = f.read()
+                            os.unlink(tmp_docx)
+                            os.unlink(tmp_pdf)
+                            st.success("✅ PDF ready!")
+                            st.rerun()
+                        except Exception:
+                            # Final fallback: guide the user
+                            if tmp_docx and os.path.exists(tmp_docx):
+                                os.unlink(tmp_docx)
+                            st.warning("""
+⚠️ **Auto PDF conversion not available on this system.**
+
+**Easy alternatives:**
+1. 📄 Download the DOCX above
+2. Go to **[ilovepdf.com](https://www.ilovepdf.com/word_to_pdf)** (free)
+3. Upload DOCX → Download PDF instantly
+""")
+                except Exception as e:
+                    if tmp_docx and os.path.exists(tmp_docx):
+                        os.unlink(tmp_docx)
+                    st.error(f"❌ PDF generation failed: {str(e)}")
+
+    # Show PDF download button if PDF was already generated
+    if 'cv_bytes_pdf' in st.session_state:
+        st.download_button(
+            label="📕 Download PDF",
+            data=st.session_state.cv_bytes_pdf,
+            file_name=st.session_state.filename.replace('.docx', '.pdf'),
+            mime="application/pdf",
+            use_container_width=True,
+            key=f"pdf_dl_{mode_key}"
+        )
+
+
+# ============================================================================
 # MODE 1: MANUAL ENTRY WITH ENHANCED VALIDATION
 # ============================================================================
 if "Manual Entry" in generation_mode:
@@ -506,7 +594,7 @@ if "Manual Entry" in generation_mode:
                 certifications=certifications if certifications else None
             )
             
-            status_text.info("✨ **Step 3/3:** Creating preview and download options...")
+            status_text.info("✨ **Step 4/4:** Creating download options...")
             progress_bar.progress(90)
             
             # Save DOCX
@@ -520,6 +608,10 @@ if "Manual Entry" in generation_mode:
             with open(tmp_docx_path, 'rb') as file:
                 cv_bytes_docx = file.read()
             
+            # Clear old PDF if new CV generated
+            if 'cv_bytes_pdf' in st.session_state:
+                del st.session_state['cv_bytes_pdf']
+
             st.session_state.cv_bytes_docx = cv_bytes_docx
             st.session_state.filename = filename
             
@@ -537,73 +629,14 @@ if "Manual Entry" in generation_mode:
             progress_bar.progress(100)
             status_text.success("✅ **CV generated successfully!**")
             time.sleep(0.5)
-            
             progress_bar.empty()
             status_text.empty()
             
             st.success("✅ Your professional CV is ready!")
-            #st.balloons()
-            progress_bar.progress(100)
-            status_text.success("✅ **CV generated successfully!**")
-            time.sleep(0.5)
-            
-            
-            st.success("✅ Your professional CV is ready!")
-            #st.balloons()
 
-            # ====================== PDF DOWNLOAD OPTION ======================
-            st.markdown("---")
-            st.markdown("### 📕 PDF Download Option")
-            
-            if st.button("🔄 Generate PDF", use_container_width=True, key="gen_pdf_manual"):
-                with st.spinner("📕 Converting DOCX to PDF..."):
-                    try:
-                        from docx2pdf import convert
-                        import tempfile
-                        
-                        # Save current DOCX temporarily
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                            tmp.write(st.session_state.cv_bytes_docx)
-                            tmp_docx = tmp.name
-                        
-                        # Convert to PDF
-                        tmp_pdf = tmp_docx.replace('.docx', '.pdf')
-                        convert(tmp_docx, tmp_pdf)
-                        
-                        # Read PDF bytes
-                        with open(tmp_pdf, 'rb') as f:
-                            pdf_bytes = f.read()
-                        
-                        # Cleanup temporary files
-                        os.unlink(tmp_docx)
-                        os.unlink(tmp_pdf)
-                        
-                        # Store in session state
-                        st.session_state.cv_bytes_pdf = pdf_bytes
-                        st.success("✅ PDF generated successfully!")
-                        st.rerun()
-                        
-                    except ImportError:
-                        st.warning("""
-⚠️ PDF conversion requires Microsoft Word installed on your system.
+            # ====================== DOWNLOAD SECTION MODE 1 ======================
+            render_download_section("manual")
 
-**Alternative ways:**
-1. Download the DOCX file above
-2. Open it in Microsoft Word → "Save As" → PDF
-3. Or upload to Google Docs and download as PDF
-""")
-                    except Exception as e:
-                        st.error(f"❌ PDF generation failed: {str(e)}")
-            
-            # Show PDF download button if available
-            if 'cv_bytes_pdf' in st.session_state:
-                st.download_button(
-                    label="📕 Download PDF",
-                    data=st.session_state.cv_bytes_pdf,
-                    file_name=st.session_state.filename.replace('.docx', '.pdf'),
-                    mime="application/pdf",
-                    use_container_width=True
-                )            
         except Exception as e:
             progress_bar.empty()
             status_text.empty()
@@ -624,7 +657,7 @@ if "Manual Entry" in generation_mode:
             with st.expander("🔧 Debug Information"):
                 st.code(f"Exception: {type(e).__name__}\nMessage: {str(e)}")
                 
-    # ============================================================================
+# ============================================================================
 # MODE 2: AUTO-GENERATE FROM JOB DESCRIPTION
 # ============================================================================
 elif "Auto-Generate" in generation_mode:
@@ -831,7 +864,11 @@ We'll match YOUR skills automatically!""",
                 with open(tmp.name, 'rb') as f:
                     cv_bytes = f.read()
             os.unlink(tmp.name)
-            
+
+            # Clear old PDF if new CV generated
+            if 'cv_bytes_pdf' in st.session_state:
+                del st.session_state['cv_bytes_pdf']
+
             st.session_state.cv_bytes_docx = cv_bytes
             st.session_state.filename = filename
             
@@ -850,7 +887,6 @@ We'll match YOUR skills automatically!""",
             progress_bar.progress(100)
             status_text.success("✅ **Optimized CV generated!**")
             time.sleep(0.5)
-            
             progress_bar.empty()
             status_text.empty()
             
@@ -871,66 +907,11 @@ We'll match YOUR skills automatically!""",
                     for skill in missing_skills[:10]:
                         st.markdown(f"• {skill}")
             
-            st.success("✅ CV optimized with matched skills prioritized!")
-            #st.balloons()
-             
-            
             st.success("✅ Your professional CV is ready!")
-            #st.balloons()
 
-            # ====================== PDF DOWNLOAD OPTION ======================
-            st.markdown("---")
-            st.markdown("### 📕 PDF Download Option")
-            
-            if st.button("🔄 Generate PDF", use_container_width=True, key="gen_pdf_manual"):
-                with st.spinner("📕 Converting DOCX to PDF..."):
-                    try:
-                        from docx2pdf import convert
-                        import tempfile
-                        
-                        # Save current DOCX temporarily
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                            tmp.write(st.session_state.cv_bytes_docx)
-                            tmp_docx = tmp.name
-                        
-                        # Convert to PDF
-                        tmp_pdf = tmp_docx.replace('.docx', '.pdf')
-                        convert(tmp_docx, tmp_pdf)
-                        
-                        # Read PDF bytes
-                        with open(tmp_pdf, 'rb') as f:
-                            pdf_bytes = f.read()
-                        
-                        # Cleanup temporary files
-                        os.unlink(tmp_docx)
-                        os.unlink(tmp_pdf)
-                        
-                        # Store in session state
-                        st.session_state.cv_bytes_pdf = pdf_bytes
-                        st.success("✅ PDF generated successfully!")
-                        st.rerun()
-                        
-                    except ImportError:
-                        st.warning("""
-⚠️ PDF conversion requires Microsoft Word installed on your system.
+            # ====================== DOWNLOAD SECTION MODE 2 ======================
+            render_download_section("auto")
 
-**Alternative ways:**
-1. Download the DOCX file above
-2. Open it in Microsoft Word → "Save As" → PDF
-3. Or upload to Google Docs and download as PDF
-""")
-                    except Exception as e:
-                        st.error(f"❌ PDF generation failed: {str(e)}")
-            
-            # Show PDF download button if available
-            if 'cv_bytes_pdf' in st.session_state:
-                st.download_button(
-                    label="📕 Download PDF",
-                    data=st.session_state.cv_bytes_pdf,
-                    file_name=st.session_state.filename.replace('.docx', '.pdf'),
-                    mime="application/pdf",
-                    use_container_width=True
-                )           
         except Exception as e:
             progress_bar.empty()
             status_text.empty()
@@ -1081,7 +1062,6 @@ elif "Extract from Documents" in generation_mode:
                 st.warning(f"Error: {str(e)}")
     
     # Generate button if data extracted
-    # Generate button if data extracted
     if st.session_state.get('ready_to_generate_from_docs', False):
         st.markdown("---")
         st.markdown("### 🎯 Optimize for Job Description (Optional)")
@@ -1183,7 +1163,11 @@ elif "Extract from Documents" in generation_mode:
                         with open(tmp.name, 'rb') as f:
                             cv_bytes = f.read()
                     os.unlink(tmp.name)
-                    
+
+                    # Clear old PDF if new CV generated
+                    if 'cv_bytes_pdf' in st.session_state:
+                        del st.session_state['cv_bytes_pdf']
+
                     st.session_state.cv_bytes_docx = cv_bytes
                     st.session_state.filename = filename
                     
@@ -1202,61 +1186,13 @@ elif "Extract from Documents" in generation_mode:
                     progress_bar.progress(100)
                     status_text.success("✅ CV generated successfully!")
                     time.sleep(0.5)
-                    
                     progress_bar.empty()
                     status_text.empty()
                     
-                    st.success("✅ CV generated and optimized!")
-                    
                     st.success("✅ Your professional CV is ready!")
 
-                    # ====================== PDF DOWNLOAD OPTION ======================
-                    st.markdown("---")
-                    st.markdown("### 📕 PDF Download Option")
-                    
-                    if st.button("🔄 Generate PDF", use_container_width=True, key="gen_pdf_docs"):
-                        with st.spinner("📕 Converting DOCX to PDF..."):
-                            try:
-                                from docx2pdf import convert
-                                import tempfile
-                                
-                                with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
-                                    tmp.write(st.session_state.cv_bytes_docx)
-                                    tmp_docx = tmp.name
-                                
-                                tmp_pdf = tmp_docx.replace('.docx', '.pdf')
-                                convert(tmp_docx, tmp_pdf)
-                                
-                                with open(tmp_pdf, 'rb') as f:
-                                    pdf_bytes = f.read()
-                                
-                                os.unlink(tmp_docx)
-                                os.unlink(tmp_pdf)
-                                
-                                st.session_state.cv_bytes_pdf = pdf_bytes
-                                st.success("✅ PDF generated successfully!")
-                                st.rerun()
-                                
-                            except ImportError:
-                                st.warning("""
-⚠️ PDF conversion requires Microsoft Word installed on your system.
-
-**Alternative ways:**
-1. Download the DOCX file above
-2. Open it in Microsoft Word → "Save As" → PDF
-3. Or upload to Google Docs and download as PDF
-""")
-                            except Exception as e:
-                                st.error(f"❌ PDF generation failed: {str(e)}")
-                    
-                    if 'cv_bytes_pdf' in st.session_state:
-                        st.download_button(
-                            label="📕 Download PDF",
-                            data=st.session_state.cv_bytes_pdf,
-                            file_name=st.session_state.filename.replace('.docx', '.pdf'),
-                            mime="application/pdf",
-                            use_container_width=True
-                        )
+                    # ====================== DOWNLOAD SECTION MODE 3 ======================
+                    render_download_section("docs")
 
                 except Exception as e:
                     progress_bar.empty()
@@ -1460,7 +1396,11 @@ elif "Improve Existing CV" in generation_mode:
                         with open(tmp.name, 'rb') as f:
                             cv_bytes = f.read()
                     os.unlink(tmp.name)
-                    
+
+                    # Clear old PDF if new CV generated
+                    if 'cv_bytes_pdf' in st.session_state:
+                        del st.session_state['cv_bytes_pdf']
+
                     st.session_state.cv_bytes_docx = cv_bytes
                     st.session_state.filename = filename
                     
@@ -1499,13 +1439,15 @@ elif "Improve Existing CV" in generation_mode:
                     progress_bar.progress(100)
                     status_text.success("✅ **Improved CV generated successfully!**")
                     time.sleep(0.5)
-                    
                     progress_bar.empty()
                     status_text.empty()
                     
                     st.success("✅ Your improved CV is ready!")
                     st.balloons()
-                    
+
+                    # ====================== DOWNLOAD SECTION MODE 4 ======================
+                    render_download_section("improve")
+
                 except Exception as e:
                     progress_bar.empty()
                     status_text.empty()
@@ -1569,4 +1511,3 @@ with st.expander("ℹ️ Tips & Best Practices"):
     - Well-lit photos
     - Typed text (not handwritten)
     """)
-    
