@@ -149,8 +149,11 @@ class ScoringEngine:
             jd_skill_text = ' '.join(jd_skills)
             
             # Get embeddings
-            cv_embedding = self.embedding_engine.get_embedding(cv_skill_text)
-            jd_embedding = self.embedding_engine.get_embedding(jd_skill_text)
+            #cv_embedding = self.embedding_engine.get_embedding(cv_skill_text)
+            #jd_embedding = self.embedding_engine.get_embedding(jd_skill_text)
+            
+            cv_embedding = self.embedding_engine.encode(cv_skill_text)
+            jd_embedding = self.embedding_engine.encode(jd_skill_text)
             
             # Calculate cosine similarity
             similarity = cosine_similarity(
