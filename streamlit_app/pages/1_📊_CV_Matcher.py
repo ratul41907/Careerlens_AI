@@ -999,10 +999,39 @@ if st.session_state.match_result and 'breakdown' in st.session_state.match_resul
                 pathway_gen = LearningPathwayGenerator()
                 
    # Extract skill gaps
+              #  skill_gaps = []
+               # for skill_detail in match_result['breakdown']['required_skills']['details']['skills']:
+                #    if not skill_detail['matched']:
+                 #       skill_gaps.append(skill_detail['skill'])
+
+    # Extract skill gaps safely
                 skill_gaps = []
-                for skill_detail in match_result['breakdown']['required_skills']['details']['skills']:
-                    if not skill_detail['matched']:
-                        skill_gaps.append(skill_detail['skill'])
+                req_details = match_result['breakdown']['required_skills'].get('details', {})
+
+    # Try to get missing skills from different possible structures
+                if 'missing_skills' in req_details:
+                    skill_gaps = req_details['missing_skills']
+                elif 'skills' in req_details:
+                    for skill_detail in req_details['skills']:
+                        if isinstance(skill_detail, dict) and not skill_detail.get('matched', False):
+                            skill_gaps.append(skill_detail['skill'])
+
+        # Fallback: If no gaps found, use some default skills
+                if not skill_gaps:
+                    st.warning("⚠️ Could not identify missing skills from match analysis.")
+                    skill_gaps_manual = st.text_input(
+                        "Enter skills to learn (comma-separated):",
+                        placeholder="e.g., Kubernetes, Docker, GraphQL"
+                    )
+                    if skill_gaps_manual:
+                        skill_gaps = [s.strip() for s in skill_gaps_manual.split(',') if s.strip()]
+                else:
+                    st.info("💡 No skill gaps to generate pathway. You matched all required skills!")
+                    st.stop()
+
+
+
+
                 
                 # Determine days
                 days_map = {
