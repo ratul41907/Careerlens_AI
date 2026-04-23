@@ -894,10 +894,38 @@ if st.session_state.match_result and 'breakdown' in st.session_state.match_resul
             simulator = CounterfactualSimulator(scoring_engine)
             
             # Get missing required skills
+            #missing_required = []
+            #for skill_detail in match_result['breakdown']['required_skills']['details']['skills']:
+             #   if not skill_detail['matched']:
+              #      missing_required.append(skill_detail['skill'])
+            
+            
+            
+            # Get missing required skills
             missing_required = []
-            for skill_detail in match_result['breakdown']['required_skills']['details']['skills']:
-                if not skill_detail['matched']:
-                    missing_required.append(skill_detail['skill'])
+            req_details = match_result['breakdown']['required_skills'].get('details', {})
+
+            # Try different data structures
+            if 'skills' in req_details:
+            # Structure 1: {'skills': [{'skill': 'Python', 'matched': True}, ...]}
+                for skill_detail in req_details['skills']:
+                    if not skill_detail.get('matched', False):
+                        missing_required.append(skill_detail['skill'])
+            elif 'missing_skills' in req_details:
+            # Structure 2: {'missing_skills': ['Kubernetes', 'Docker'], ...}
+                missing_required = req_details['missing_skills']
+            else:
+            # Fallback: Try to extract from match_result directly
+                missing_required = []
+
+            # Safety check
+            if not missing_required:
+                st.info("💡 No missing skills found or unable to analyze skill gaps.")
+            
+            
+            
+            
+            
             
             if missing_required:
                 # Extract current score as float
