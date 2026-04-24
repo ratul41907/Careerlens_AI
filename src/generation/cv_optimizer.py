@@ -12,7 +12,7 @@ class CVOptimizer:
     Use LLM to optimize CVs for specific job descriptions
     """
     
-    def __init__(self, ollama_url: str = "http://localhost:11434", model: str = "gemma2:2b"):
+    def __init__(self, ollama_url: str = "http://localhost:11434", model: str = "gemma"):
         self.ollama_url = ollama_url
         self.model = model
     

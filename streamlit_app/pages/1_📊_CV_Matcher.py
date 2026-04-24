@@ -933,11 +933,11 @@ Keep response under 200 words, bullet points."""
                 response = requests.post(
                     "http://localhost:11434/api/generate",
                     json={
-                        "model": "gemma2:2b",
+                        "model": "gemma",
                         "prompt": prompt,
                         "stream": False
                     },
-                    timeout=60
+                    timeout=120
                 )
 
                 if response.status_code == 200:
