@@ -1138,9 +1138,15 @@ if st.button("🧠 Get AI Analysis", use_container_width=True):
             
             # Get missing skills
             missing_skills = []
-            for skill in match_result['breakdown']['required_skills']['details']['skills']:
-                if not skill['matched']:
-                    missing_skills.append(skill['skill'])
+            req_details = match_result['breakdown']['required_skills'].get('details', {})
+            if 'missing_skills' in req_details:
+                missing_skills = req_details['missing_skills']
+            elif 'skills' in req_details:
+                for skill_item in req_details['skills']:
+                    if isinstance(skill_item, dict) and not skill_item.get('matched', False):
+                        missing_skills.append(skill_item.get('skill', 'Unknown'))
+            if not missing_skills:
+                   missing_skills = ['No specific gaps identified']
             
             # Call LLM for insights
             prompt = f"""Analyze this CV-JD match and provide actionable advice.
