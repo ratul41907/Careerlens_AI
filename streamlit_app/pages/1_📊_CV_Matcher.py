@@ -41,34 +41,23 @@ inject_mobile_styles()
 st.markdown("""
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
-    /* Force container width on desktop */
     .main .block-container {
         max-width: 100% !important;
         padding-left: 5rem !important;
         padding-right: 5rem !important;
     }
-    
-    /* Mobile override */
     @media (max-width: 768px) {
         .main .block-container {
             padding-left: 1rem !important;
             padding-right: 1rem !important;
         }
     }
-    
-    /* Fix Cloudflare font rendering */
     * {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         text-rendering: optimizeLegibility;
     }
-    
-    /* Prevent layout shift */
-    .stApp {
-        min-height: 100vh;
-    }
-    
-    /* Fix column widths on desktop */
+    .stApp { min-height: 100vh; }
     [data-testid="column"] {
         width: auto !important;
         min-width: 0 !important;
@@ -98,31 +87,20 @@ from src.scoring.scoring_engine import ScoringEngine
 from src.scoring.explainability import ExplainabilityEngine
 
 # ============================================================================
-# CONFIGURATION
+# CSS
 # ============================================================================
-OPTIMIZATION_ENABLED = OPTIMIZATION_ENABLED  # From caching import above
-
-# Rest of your code continues here...
-# Apply dark theme CSS
 st.markdown("""
 <style>
-    /* Dark theme */
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     }
-    
-    /* Hide branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    
-    /* Typography */
-    .main h1, .main h2, .main h3, .main h4, .main h5, .main h6, 
+    .main h1, .main h2, .main h3, .main h4, .main h5, .main h6,
     .main p, .main span, .main div {
         color: #e2e8f0 !important;
     }
-    
-    /* Score display */
     .score-card {
         background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
         border: 2px solid rgba(96, 165, 250, 0.5);
@@ -132,7 +110,6 @@ st.markdown("""
         margin: 2rem 0;
         box-shadow: 0 0 40px rgba(59, 130, 246, 0.3);
     }
-    
     .score-value {
         font-size: 5rem;
         font-weight: 800;
@@ -141,14 +118,11 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         margin: 0;
     }
-    
     .score-label {
         font-size: 1.5rem;
         color: #cbd5e1;
         margin-top: 1rem;
     }
-    
-    /* Skill cards */
     .skill-card {
         background: rgba(30, 41, 59, 0.7);
         border: 1px solid rgba(148, 163, 184, 0.2);
@@ -157,21 +131,12 @@ st.markdown("""
         margin-bottom: 0.75rem;
         transition: all 0.3s ease;
     }
-    
     .skill-card:hover {
         border-color: rgba(96, 165, 250, 0.5);
         box-shadow: 0 4px 12px rgba(96, 165, 250, 0.2);
     }
-    
-    .skill-matched {
-        border-left: 4px solid #10b981;
-    }
-    
-    .skill-missing {
-        border-left: 4px solid #ef4444;
-    }
-    
-    /* Buttons */
+    .skill-matched { border-left: 4px solid #10b981; }
+    .skill-missing { border-left: 4px solid #ef4444; }
     .stButton > button {
         background: linear-gradient(135deg, #3b82f6, #8b5cf6);
         color: white !important;
@@ -182,53 +147,40 @@ st.markdown("""
         font-weight: 600;
         box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
     }
-    
     .stButton > button:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(59, 130, 246, 0.6);
     }
-    
-    /* File uploader */
     [data-testid="stFileUploader"] {
         background: rgba(30, 41, 59, 0.5);
         border: 2px dashed rgba(96, 165, 250, 0.3);
         border-radius: 12px;
         padding: 2rem;
     }
-    
-    /* Text area */
     .stTextArea textarea {
         background: rgba(30, 41, 59, 0.8) !important;
         color: #e2e8f0 !important;
         border: 1px solid rgba(96, 165, 250, 0.3) !important;
         border-radius: 8px;
     }
-    
-    /* Progress bar */
     .stProgress > div > div {
         background: linear-gradient(90deg, #3b82f6, #8b5cf6);
     }
-    
-    /* Success/Error messages */
     .stSuccess {
         background: rgba(16, 185, 129, 0.1);
         border: 1px solid rgba(16, 185, 129, 0.3);
         color: #10b981 !important;
     }
-    
     .stError {
         background: rgba(239, 68, 68, 0.1);
         border: 1px solid rgba(239, 68, 68, 0.3);
         color: #ef4444 !important;
     }
-    
     .stInfo {
         background: rgba(59, 130, 246, 0.1);
         border: 1px solid rgba(59, 130, 246, 0.3);
         color: #3b82f6 !important;
     }
-    
-    /* Highlight box */
     .highlight-box {
         background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(52, 211, 153, 0.1));
         border: 1px solid rgba(16, 185, 129, 0.3);
@@ -239,13 +191,21 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
+# ============================================================================
+# SESSION STATE INIT
+# ============================================================================
 if 'match_result' not in st.session_state:
     st.session_state.match_result = None
 if 'explanation' not in st.session_state:
     st.session_state.explanation = None
+if 'cv_data' not in st.session_state:
+    st.session_state.cv_data = None
+if 'jd_data' not in st.session_state:
+    st.session_state.jd_data = None
 
-# Cache the engines with optimization
+# ============================================================================
+# ENGINE LOADING
+# ============================================================================
 def load_engines():
     """Load AI engines with optimized caching"""
     if OPTIMIZATION_ENABLED:
@@ -253,17 +213,17 @@ def load_engines():
         scoring_engine = ModelCache.load_scoring_engine(embedding_engine)
         explainability_engine = ModelCache.load_explainability_engine(embedding_engine)
     else:
-        # Fallback to standard loading
         with st.spinner("🔧 Loading AI engines..."):
             embedding_engine = EmbeddingEngine()
             scoring_engine = ScoringEngine(embedding_engine)
             explainability_engine = ExplainabilityEngine(embedding_engine)
-    
     return embedding_engine, scoring_engine, explainability_engine
 
-# Title
+# ============================================================================
+# TITLE
+# ============================================================================
 st.markdown("""
-<h1 style="background: linear-gradient(90deg, #60a5fa, #a78bfa); -webkit-background-clip: text; 
+<h1 style="background: linear-gradient(90deg, #60a5fa, #a78bfa); -webkit-background-clip: text;
            -webkit-text-fill-color: transparent; font-size: 3rem; font-weight: 800; margin-bottom: 0.5rem;">
     📊 CV-JD Matcher
 </h1>
@@ -282,21 +242,21 @@ except Exception as e:
         st.code(f"Error: {str(e)}\n\nPlease restart the application.")
     st.stop()
 
-# Two columns: CV upload and JD input
+# ============================================================================
+# SECTION 1: INPUT - CV + JD (NO learning pathway here)
+# ============================================================================
 col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("### 📄 Your CV")
-    
-    # CV upload
+
     uploaded_file = st.file_uploader(
         "Upload CV (PDF, DOCX, or TXT)",
         type=['pdf', 'docx', 'txt'],
         key="cv_upload",
         help="Upload your resume in PDF, DOCX, or TXT format"
     )
-    
-    # OR paste CV text
+
     st.markdown("**OR paste CV text:**")
     cv_text = accessibility.accessible_text_area(
         "Paste your CV here",
@@ -305,11 +265,11 @@ with col1:
         help_text="Paste the full text of your CV including experience, skills, and education",
         label_visibility="collapsed"
     )
-
+    # END OF col1 - learning pathway is NOT here
 
 with col2:
     st.markdown("### 💼 Job Description")
-    
+
     jd_text = accessibility.accessible_text_area(
         "Paste job description",
         key="jd_textarea",
@@ -341,240 +301,229 @@ GPA: Minimum 3.0""",
 if jd_text:
     st.session_state.jd_for_eligibility = jd_text
 
-# Match button
+# ============================================================================
+# SECTION 2: MATCH BUTTON
+# ============================================================================
 st.markdown("---")
 
 col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
 
 with col_btn2:
     analyze_button = accessibility.accessible_button(
-        "🎯 Analyze Match", 
+        "🎯 Analyze Match",
         key="analyze_match_btn",
         help_text="Start CV-JD match analysis (takes 6-10 seconds)",
     )
+
 if analyze_button:
     # Validation
     if not jd_text:
         st.error("❌ **Please provide a job description**")
         st.info("💡 **Tip:** Paste the complete job posting including required skills.")
         st.stop()
-    
+
     if not uploaded_file and not cv_text:
         st.error("❌ **Please upload a CV or paste CV text**")
         st.info("💡 **Tip:** You can either upload a PDF/DOCX file or paste your CV text.")
         st.stop()
-    
-    # Progress tracking
+
     progress_bar = st.progress(0)
     status_text = st.empty()
-    
+
     try:
-        # Step 1: Parse CV (20%) - WITH CACHING
+        # Step 1: Parse CV (20%)
         status_text.info("📄 **Step 1/5:** Parsing your CV...")
         progress_bar.progress(20)
-        
+
         if OPTIMIZATION_ENABLED:
             cv_parser = ModelCache.load_cv_parser()
         else:
             cv_parser = CVParser()
-        
+
         try:
             if uploaded_file:
-                # Generate file hash for caching
                 file_content = uploaded_file.read()
                 file_hash = hashlib.md5(file_content).hexdigest()
-                
-                # Save temporarily
+
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
                     tmp_file.write(file_content)
                     tmp_path = tmp_file.name
-                
-                # Use cached parsing
+
                 if OPTIMIZATION_ENABLED:
                     cv_data = ComputationCache.cache_cv_parse(cv_parser, file_hash, tmp_path)
                 else:
                     cv_data = cv_parser.parse(tmp_path)
-                
+
                 os.unlink(tmp_path)
             else:
                 cv_data = {
                     'text': cv_text,
                     'sections': cv_parser._segment_sections(cv_text)
                 }
-            
+
             st.success("✅ CV parsed successfully!")
             time.sleep(0.3)
-            
+
         except Exception as e:
             progress_bar.empty()
             status_text.empty()
-            st.error(f"❌ **Failed to parse CV**")
+            st.error("❌ **Failed to parse CV**")
             st.warning(f"""
             **Possible causes:**
             - File corrupted or unsupported format
             - File contains only images (no text)
             - File encoding issue
-            
+
             **Solutions:**
             - Try plain text format
             - Copy and paste content manually
-            
+
             **Technical details:** {str(e)}
             """)
             st.stop()
-        
-        # Step 2: Parse JD (40%) - WITH CACHING
+
+        # Step 2: Parse JD (40%)
         status_text.info("💼 **Step 2/5:** Analyzing job description...")
         progress_bar.progress(40)
-        
+
         try:
-                if OPTIMIZATION_ENABLED:
-                    jd_parser = ModelCache.load_jd_parser()
-                    jd_parsed, jd_hash = ComputationCache.cache_jd_parse(jd_parser, jd_text)
-                else:
-                    jd_parser = JDParser()
-                    jd_parsed = jd_parser.parse(jd_text)
-                    jd_hash = hashlib.md5(jd_text.encode()).hexdigest()
-                
-                jd_data = {
-                    'text': jd_parsed.get('text', jd_text),
-                    'required_skills': jd_parsed.get('sections', {}).get('required_skills', []),
-                    'preferred_skills': jd_parsed.get('sections', {}).get('preferred_skills', []),
-                    'experience': jd_parsed.get('sections', {}).get('experience', {}),
-                    'education': jd_parsed.get('sections', {}).get('education', ''),
-                    'job_title': jd_parsed.get('sections', {}).get('job_title', ''),
-                }
-                
-                num_required = len(jd_data.get('required_skills', []))
-                num_preferred = len(jd_data.get('preferred_skills', []))
-                
-                st.success(f"✅ Found {num_required} required, {num_preferred} preferred skills")
-                time.sleep(0.3)
-                
+            if OPTIMIZATION_ENABLED:
+                jd_parser = ModelCache.load_jd_parser()
+                jd_parsed, jd_hash = ComputationCache.cache_jd_parse(jd_parser, jd_text)
+            else:
+                jd_parser = JDParser()
+                jd_parsed = jd_parser.parse(jd_text)
+                jd_hash = hashlib.md5(jd_text.encode()).hexdigest()
+
+            jd_data = {
+                'text': jd_parsed.get('text', jd_text),
+                'required_skills': jd_parsed.get('sections', {}).get('required_skills', []),
+                'preferred_skills': jd_parsed.get('sections', {}).get('preferred_skills', []),
+                'experience': jd_parsed.get('sections', {}).get('experience', {}),
+                'education': jd_parsed.get('sections', {}).get('education', ''),
+                'job_title': jd_parsed.get('sections', {}).get('job_title', ''),
+            }
+
+            num_required = len(jd_data.get('required_skills', []))
+            num_preferred = len(jd_data.get('preferred_skills', []))
+
+            st.success(f"✅ Found {num_required} required, {num_preferred} preferred skills")
+            time.sleep(0.3)
+
         except Exception as e:
-                    progress_bar.empty()
-                    status_text.empty()
-                    st.error(f"❌ **Failed to parse job description**")
-                    st.warning(f"""
+            progress_bar.empty()
+            status_text.empty()
+            st.error("❌ **Failed to parse job description**")
+            st.warning(f"""
             **Possible causes:**
             - JD text incomplete
             - No clear skills section
-            
+
             **Solutions:**
             - Include complete job posting
             - Ensure skills are clearly listed
-            
+
             **Technical details:** {str(e)}
             """)
-                    st.stop()
-        
+            st.stop()
+
         # Step 3: Embeddings (60%)
         status_text.info("🧠 **Step 3/5:** Generating semantic embeddings (AI)...")
         progress_bar.progress(60)
         time.sleep(0.5)
-        
-        # Step 4: Calculate Match (80%) - WITH CACHING
+
+        # Step 4: Calculate Match (80%)
         status_text.info("🎯 **Step 4/5:** Calculating match score...")
         progress_bar.progress(80)
-        
+
         try:
-            # Use cached match score if available
             cv_hash = hashlib.md5(str(cv_data).encode()).hexdigest()
-            
+
             if OPTIMIZATION_ENABLED:
                 match_result = ComputationCache.cache_match_score(
                     scoring_engine, cv_hash, jd_hash, cv_data, jd_data
                 )
             else:
                 match_result = scoring_engine.compute_match_score(cv_data, jd_data)
-            
+
             time.sleep(0.3)
-            
+
         except Exception as e:
             progress_bar.empty()
             status_text.empty()
-            st.error(f"❌ **Failed to compute match score**")
+            st.error("❌ **Failed to compute match score**")
             st.warning(f"""
             **AI model error. Please:**
             1. Restart application
             2. Check 8GB+ RAM available
             3. Try shorter CV/JD text
-            
+
             **Technical details:** {str(e)}
             """)
             st.stop()
-        
+
         # Step 5: Generate Evidence (95%)
         status_text.info("📊 **Step 5/5:** Generating insights...")
         progress_bar.progress(95)
-        
+
         try:
             explanation = explainability_engine.explain_match(cv_data, jd_data, match_result)
         except Exception as e:
-            progress_bar.empty()
-            status_text.empty()
-            st.warning(f"""
-            ⚠️ **Match calculated but explanations failed.**
-            You can still see your match score below.
-            """)
+            st.warning("⚠️ **Match calculated but explanations failed.** You can still see your match score below.")
             explanation = {'evidence': {}, 'recommendations': []}
-        
+
         # Complete
         progress_bar.progress(100)
         status_text.success("✅ **Match analysis complete!**")
         time.sleep(0.5)
-        
+
         progress_bar.empty()
         status_text.empty()
-        
-# Store results AND data
+
+        # Store results in session state
         st.session_state.match_result = match_result
         st.session_state.explanation = explanation
         st.session_state.cv_data = cv_data
         st.session_state.jd_data = jd_data
-        
-        # Accessibility - Announce match completion (Day 26)
+
         accessibility.add_aria_live_region(
             "match-result-announcement",
             f"Match analysis complete. Your score is {match_result['overall_percentage']}. Results are now displayed below.",
             politeness="assertive"
         )
-        
-        # Cleanup memory if optimization enabled
+
         if OPTIMIZATION_ENABLED:
             gc.collect()
-        
-        # st.balloons()
-        
+
     except Exception as e:
         progress_bar.empty()
         status_text.empty()
-        st.error(f"❌ **Unexpected error during matching**")
+        st.error("❌ **Unexpected error during matching**")
         st.warning(f"""
         **Something went wrong. Please try:**
         - Refreshing the page
         - Using different CV/JD
         - Restarting application
-        
+
         **Technical details:** {str(e)}
         """)
         with st.expander("🔧 Debug Information"):
             st.code(f"Exception: {type(e).__name__}\nMessage: {str(e)}")
         st.stop()
 
-# Display results if available
+# ============================================================================
+# SECTION 3: DISPLAY RESULTS (only when match_result exists)
+# ============================================================================
 if st.session_state.match_result:
     match_result = st.session_state.match_result
     explanation = st.session_state.explanation
-    
+
     st.markdown("---")
     st.markdown("## 🎯 Match Results")
-    
-    # Overall score
+
     score = match_result['overall_score']
     percentage = match_result['overall_percentage']
-    
-    # Color based on score
+
     if score >= 0.75:
         emoji = "🟢"
         level_color = "#10b981"
@@ -587,8 +536,7 @@ if st.session_state.match_result:
     else:
         emoji = "🔴"
         level_color = "#ef4444"
-    
-    # Score display
+
     st.markdown(f"""
     <div class="score-card">
         <div class="score-value">{emoji} {percentage}</div>
@@ -598,130 +546,91 @@ if st.session_state.match_result:
         </p>
     </div>
     """, unsafe_allow_html=True)
-    
-    # Breakdown
+
+    # Score Breakdown metrics
     st.markdown("### 📊 Score Breakdown")
-    
+
     breakdown_col1, breakdown_col2, breakdown_col3 = st.columns(3)
-    
+
     with breakdown_col1:
         req_score = match_result['breakdown']['required_skills']['percentage']
-        # With this:
         details = match_result['breakdown']['required_skills'].get('details', {})
         matched_count = details.get('matched_count', 0)
-        total_count = details.get('total_count', 1)  # avoid division by zero
+        total_count = details.get('total_count', 1)
         req_matched = f"{matched_count}/{total_count} skills"
-        st.metric(
-            "Required Skills",
-            req_score,
-            req_matched,
-            help="Skills that MUST be on your CV"
-        )
-    
+        st.metric("Required Skills", req_score, req_matched, help="Skills that MUST be on your CV")
+
     with breakdown_col2:
         pref_score = match_result['breakdown']['preferred_skills']['percentage']
-        st.metric(
-            "Preferred Skills",
-            pref_score,
-            help="Nice-to-have skills (bonus points)"
-        )
-    
+        st.metric("Preferred Skills", pref_score, help="Nice-to-have skills (bonus points)")
+
     with breakdown_col3:
         exp_score = match_result['breakdown']['experience']['percentage']
-        st.metric(
-            "Experience",
-            exp_score,
-            help="Years of experience match"
-        )
-    
-    # Detailed skills analysis
-    # # ===================================================================
-# SKILL BREAKDOWN DISPLAY
-# ===================================================================
-# ===================================================================
-# SKILL BREAKDOWN DISPLAY
-# ===================================================================
-if st.session_state.match_result and 'breakdown' in st.session_state.match_result:
-    match_result = st.session_state.match_result
+        st.metric("Experience", exp_score, help="Years of experience match")
+
+    # -----------------------------------------------------------------------
+    # DETAILED SKILL BREAKDOWN
+    # -----------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### 🔍 Detailed Match Breakdown")
-    
-    # Required Skills Section
+
     with st.expander("📌 Required Skills Analysis", expanded=True):
         req_breakdown = match_result['breakdown']['required_skills']
         req_details = req_breakdown.get('details', {})
-        
+
         col1, col2, col3 = st.columns(3)
-        
         with col1:
-            score = req_breakdown.get('score', 0)
-            st.metric("Score", f"{score*100:.1f}%")
-        
+            st.metric("Score", f"{req_breakdown.get('score', 0)*100:.1f}%")
         with col2:
-            weight = req_breakdown.get('weight', 0)
-            st.metric("Weight", f"{weight*100:.0f}%")
-        
+            st.metric("Weight", f"{req_breakdown.get('weight', 0)*100:.0f}%")
         with col3:
-            contribution = req_breakdown.get('contribution', '0%')
-            st.metric("Contribution", contribution)
-        
-        # Matched vs Missing Skills
+            st.metric("Contribution", req_breakdown.get('contribution', '0%'))
+
         st.markdown("#### Skills Breakdown")
-        
         skill_col1, skill_col2 = st.columns(2)
-        
+
         with skill_col1:
             st.markdown("**✅ Matched Skills:**")
             matched_skills = req_details.get('matched_skills', [])
             if matched_skills:
-                for skill in matched_skills[:15]:  # Show up to 15
+                for skill in matched_skills[:15]:
                     st.markdown(f"- ✓ {skill}")
                 if len(matched_skills) > 15:
                     st.caption(f"... and {len(matched_skills) - 15} more")
             else:
                 st.info("No matched skills found")
-        
+
         with skill_col2:
             st.markdown("**❌ Missing Skills:**")
             missing_skills = req_details.get('missing_skills', [])
             if missing_skills:
-                for skill in missing_skills[:15]:  # Show up to 15
+                for skill in missing_skills[:15]:
                     st.markdown(f"- ✗ {skill}")
                 if len(missing_skills) > 15:
                     st.caption(f"... and {len(missing_skills) - 15} more")
             else:
                 st.success("All required skills present!")
-        
-        # Match rate
+
         match_rate = req_details.get('match_rate', '0/0')
         st.info(f"📊 Match Rate: {match_rate}")
-    
-    # Preferred Skills Section
+
     with st.expander("⭐ Preferred Skills Analysis", expanded=False):
         pref_breakdown = match_result['breakdown']['preferred_skills']
         pref_details = pref_breakdown.get('details', {})
-        
+
         col1, col2, col3 = st.columns(3)
-        
         with col1:
-            score = pref_breakdown.get('score', 0)
-            st.metric("Score", f"{score*100:.1f}%")
-        
+            st.metric("Score", f"{pref_breakdown.get('score', 0)*100:.1f}%")
         with col2:
-            weight = pref_breakdown.get('weight', 0)
-            st.metric("Weight", f"{weight*100:.0f}%")
-        
+            st.metric("Weight", f"{pref_breakdown.get('weight', 0)*100:.0f}%")
         with col3:
-            contribution = pref_breakdown.get('contribution', '0%')
-            st.metric("Contribution", contribution)
-        
-        # Matched preferred skills
+            st.metric("Contribution", pref_breakdown.get('contribution', '0%'))
+
         matched_pref = pref_details.get('matched_skills', [])
         missing_pref = pref_details.get('missing_skills', [])
-        
+
         if matched_pref or missing_pref:
             skill_col1, skill_col2 = st.columns(2)
-            
             with skill_col1:
                 st.markdown("**✅ Matched:**")
                 if matched_pref:
@@ -729,7 +638,6 @@ if st.session_state.match_result and 'breakdown' in st.session_state.match_resul
                         st.markdown(f"- ✓ {skill}")
                 else:
                     st.info("None matched")
-            
             with skill_col2:
                 st.markdown("**❌ Missing:**")
                 if missing_pref:
@@ -737,196 +645,143 @@ if st.session_state.match_result and 'breakdown' in st.session_state.match_resul
                         st.markdown(f"- ✗ {skill}")
                 else:
                     st.success("All present!")
-    
-    # Experience Section
+
     with st.expander("💼 Experience Analysis", expanded=False):
         exp_breakdown = match_result['breakdown']['experience']
         exp_details = exp_breakdown.get('details', {})
-        
+
         col1, col2, col3 = st.columns(3)
-        
         with col1:
-            score = exp_breakdown.get('score', 0)
-            st.metric("Score", f"{score*100:.1f}%")
-        
+            st.metric("Score", f"{exp_breakdown.get('score', 0)*100:.1f}%")
         with col2:
-            weight = exp_breakdown.get('weight', 0)
-            st.metric("Weight", f"{weight*100:.0f}%")
-        
+            st.metric("Weight", f"{exp_breakdown.get('weight', 0)*100:.0f}%")
         with col3:
-            contribution = exp_breakdown.get('contribution', '0%')
-            st.metric("Contribution", contribution)
-        
-        # Experience details
+            st.metric("Contribution", exp_breakdown.get('contribution', '0%'))
+
         cv_exp = exp_details.get('cv_experience', 'Not specified')
         jd_req = exp_details.get('jd_requirement', 'Not specified')
-        
+
         col_exp1, col_exp2 = st.columns(2)
-        
         with col_exp1:
             st.markdown("**Your Experience:**")
             st.info(cv_exp)
-        
         with col_exp2:
             st.markdown("**Required:**")
             st.info(jd_req)
-    
-    # Evidence section
-    if 'evidence' in explanation and explanation['evidence']:
+
+    # Evidence
+    if explanation and 'evidence' in explanation and explanation['evidence']:
         st.markdown("### 📝 Evidence")
-        
         with st.expander("🔍 See detailed evidence for each skill", expanded=False):
             for skill, evidence_list in list(explanation['evidence'].items())[:5]:
                 st.markdown(f"**{skill}:**")
                 for ev in evidence_list[:2]:
                     st.info(f"💡 \"{ev['sentence']}\" (Confidence: {ev['score']:.0%})")
-    
+
     # Recommendations
-    if 'recommendations' in explanation and explanation['recommendations']:
+    if explanation and 'recommendations' in explanation and explanation['recommendations']:
         st.markdown("### 💡 Recommendations")
-        
         for i, rec in enumerate(explanation['recommendations'][:3], 1):
             rec_col1, rec_col2, rec_col3 = st.columns([0.5, 8, 1.5])
-            
             with rec_col1:
                 st.markdown(f"**{i}.**")
-            
             with rec_col2:
                 st.warning(rec)
-            
             with rec_col3:
                 st.markdown("**High**" if i == 1 else "**Medium**" if i == 2 else "**Low**")
-    
-# DAY 24 FEATURE 2: Counterfactual Skill Impact Analysis
+
+    # -----------------------------------------------------------------------
+    # COUNTERFACTUAL SKILL IMPACT ANALYSIS
+    # -----------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### 🎯 Skill Impact Simulation")
     st.info("💡 **What if you learned a missing skill?** See predicted score improvements:")
-    
-    # Check if we have data
-    if 'cv_data' not in st.session_state or 'jd_data' not in st.session_state:
-        st.warning("⚠️ Please perform a match analysis first to see skill impact predictions.")
-    else:
-        try:
-            from src.scoring.counterfactual import CounterfactualSimulator
-            
-            simulator = CounterfactualSimulator(scoring_engine)
-            
-            # Get missing required skills
-            #missing_required = []
-            #for skill_detail in match_result['breakdown']['required_skills']['details']['skills']:
-             #   if not skill_detail['matched']:
-              #      missing_required.append(skill_detail['skill'])
-            
-            
-            
-            # Get missing required skills
-            missing_required = []
-            req_details = match_result['breakdown']['required_skills'].get('details', {})
 
-            # Try different data structures
-            if 'skills' in req_details:
-            # Structure 1: {'skills': [{'skill': 'Python', 'matched': True}, ...]}
-                for skill_detail in req_details['skills']:
-                    if not skill_detail.get('matched', False):
-                        missing_required.append(skill_detail['skill'])
-            elif 'missing_skills' in req_details:
-            # Structure 2: {'missing_skills': ['Kubernetes', 'Docker'], ...}
-                missing_required = req_details['missing_skills']
-            else:
-            # Fallback: Try to extract from match_result directly
-                missing_required = []
+    try:
+        from src.scoring.counterfactual import CounterfactualSimulator
 
-            # Safety check
-            if not missing_required:
-                st.info("💡 No missing skills found or unable to analyze skill gaps.")
-            
-            
-            
-            
-            
-            
-            if missing_required:
-                # Extract current score as float
-                current_percentage = match_result['overall_percentage']
-                if isinstance(current_percentage, str):
-                    current_percentage = float(current_percentage.replace('%', '').strip())
-                else:
-                    current_percentage = float(current_percentage)
-                
-                # Simulate adding each skill
-                impact_results = []
-                for skill in missing_required[:10]:
-                    simulated_score = simulator.simulate_skill_addition(
-                        st.session_state.cv_data,
-                        st.session_state.jd_data,
-                        skill
-                    )
-                    improvement = simulated_score - current_percentage
-                    impact_results.append({
-                        'skill': skill,
-                        'current': current_percentage,
-                        'predicted': simulated_score,
-                        'improvement': improvement
-                    })
-                
-                # Sort by improvement (descending)
-                impact_results.sort(key=lambda x: x['improvement'], reverse=True)
-                
-                # Display top 5
-                st.markdown("**🏆 Top 5 High-Impact Skills to Learn:**")
-                
-                for idx, result in enumerate(impact_results[:5], 1):
-                    impact_col1, impact_col2, impact_col3 = st.columns([2, 1, 1])
-                    
-                    with impact_col1:
-                        st.markdown(f"**{idx}. {result['skill']}**")
-                    
-                    with impact_col2:
-                        st.metric("Predicted Score", f"{result['predicted']:.1f}%", f"+{result['improvement']:.1f}%")
-                    
-                    with impact_col3:
-                        if result['improvement'] >= 8:
-                            st.success("🔥 High Impact")
-                        elif result['improvement'] >= 5:
-                            st.info("⭐ Medium Impact")
-                        else:
-                            st.warning("💡 Low Impact")
-                
-                st.markdown("**💡 Learning Priority:** Focus on high-impact skills first for maximum score improvement!")
+        simulator = CounterfactualSimulator(scoring_engine)
+
+        missing_required = []
+        req_details = match_result['breakdown']['required_skills'].get('details', {})
+
+        if 'skills' in req_details:
+            for skill_detail in req_details['skills']:
+                if not skill_detail.get('matched', False):
+                    missing_required.append(skill_detail['skill'])
+        elif 'missing_skills' in req_details:
+            missing_required = req_details['missing_skills']
+
+        if not missing_required:
+            st.info("💡 No missing skills found or unable to analyze skill gaps.")
+        else:
+            current_percentage = match_result['overall_percentage']
+            if isinstance(current_percentage, str):
+                current_percentage = float(current_percentage.replace('%', '').strip())
             else:
-                st.success("✅ You already have all required skills!")
-        
-        except Exception as e:
-            st.warning(f"⚠️ Counterfactual analysis unavailable: {str(e)}")   
-            
-            # DAY 24 FEATURE 3: Learning Pathways
+                current_percentage = float(current_percentage)
+
+            impact_results = []
+            for skill in missing_required[:10]:
+                simulated_score = simulator.simulate_skill_addition(
+                    st.session_state.cv_data,
+                    st.session_state.jd_data,
+                    skill
+                )
+                improvement = simulated_score - current_percentage
+                impact_results.append({
+                    'skill': skill,
+                    'current': current_percentage,
+                    'predicted': simulated_score,
+                    'improvement': improvement
+                })
+
+            impact_results.sort(key=lambda x: x['improvement'], reverse=True)
+
+            st.markdown("**🏆 Top 5 High-Impact Skills to Learn:**")
+
+            for idx, result in enumerate(impact_results[:5], 1):
+                impact_col1, impact_col2, impact_col3 = st.columns([2, 1, 1])
+                with impact_col1:
+                    st.markdown(f"**{idx}. {result['skill']}**")
+                with impact_col2:
+                    st.metric("Predicted Score", f"{result['predicted']:.1f}%", f"+{result['improvement']:.1f}%")
+                with impact_col3:
+                    if result['improvement'] >= 8:
+                        st.success("🔥 High Impact")
+                    elif result['improvement'] >= 5:
+                        st.info("⭐ Medium Impact")
+                    else:
+                        st.warning("💡 Low Impact")
+
+            st.markdown("**💡 Learning Priority:** Focus on high-impact skills first for maximum score improvement!")
+
+    except Exception as e:
+        st.warning(f"⚠️ Counterfactual analysis unavailable: {str(e)}")
+
+    # -----------------------------------------------------------------------
+    # LEARNING PATHWAY (CORRECT LOCATION - after results, single copy)
+    # -----------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### 📚 Personalized Learning Pathway")
-    
+
     pathway_duration = st.radio(
         "Choose your learning timeline:",
         ["7-Day Quick Start", "14-Day Accelerated", "30-Day Comprehensive"],
         horizontal=True
     )
-    
+
     if st.button("📖 Generate Learning Plan", use_container_width=True):
         with st.spinner("🎓 Creating your personalized learning pathway..."):
             try:
                 from src.guidance.learning_pathways import LearningPathwayGenerator
-                
-                pathway_gen = LearningPathwayGenerator()
-                
-   # Extract skill gaps
-              #  skill_gaps = []
-               # for skill_detail in match_result['breakdown']['required_skills']['details']['skills']:
-                #    if not skill_detail['matched']:
-                 #       skill_gaps.append(skill_detail['skill'])
 
-    # Extract skill gaps safely
+                pathway_gen = LearningPathwayGenerator()
+
+                # Extract skill gaps safely
                 skill_gaps = []
                 req_details = match_result['breakdown']['required_skills'].get('details', {})
 
-    # Try to get missing skills from different possible structures
                 if 'missing_skills' in req_details:
                     skill_gaps = req_details['missing_skills']
                 elif 'skills' in req_details:
@@ -934,90 +789,82 @@ if st.session_state.match_result and 'breakdown' in st.session_state.match_resul
                         if isinstance(skill_detail, dict) and not skill_detail.get('matched', False):
                             skill_gaps.append(skill_detail['skill'])
 
-        # Fallback: If no gaps found, use some default skills
+                # If no gaps found, let user enter manually
                 if not skill_gaps:
                     st.warning("⚠️ Could not identify missing skills from match analysis.")
                     skill_gaps_manual = st.text_input(
                         "Enter skills to learn (comma-separated):",
-                        placeholder="e.g., Kubernetes, Docker, GraphQL"
+                        placeholder="e.g., Kubernetes, Docker, GraphQL",
+                        key="manual_skill_input_pathway"
                     )
                     if skill_gaps_manual:
                         skill_gaps = [s.strip() for s in skill_gaps_manual.split(',') if s.strip()]
+
+                # ONLY generate pathway if we have skills
+                if skill_gaps:
+                    days_map = {
+                        "7-Day Quick Start": 7,
+                        "14-Day Accelerated": 14,
+                        "30-Day Comprehensive": 30
+                    }
+                    num_days = days_map[pathway_duration]
+
+                    pathway = pathway_gen.generate_pathway(
+                        skill_gaps,
+                        st.session_state.jd_data,
+                        num_days
+                    )
+
+                    st.success(f"✅ **{num_days}-Day Learning Plan Created!**")
+
+                    st.markdown("### 📋 Your Learning Roadmap")
+
+                    for day_plan in pathway['daily_plans'][:5]:
+                        with st.expander(f"📅 Day {day_plan['day']}: {day_plan['focus']}", expanded=(day_plan['day'] == 1)):
+                            st.markdown(f"**🎯 Goal:** {day_plan['goal']}")
+                            st.markdown("**📚 Tasks:**")
+                            for task in day_plan['tasks']:
+                                st.markdown(f"- {task}")
+                            if day_plan.get('resources'):
+                                st.markdown("**🔗 Resources:**")
+                                for resource in day_plan['resources'][:3]:
+                                    st.markdown(f"- {resource}")
+                            if day_plan.get('mini_project'):
+                                st.info(f"💡 **Mini-Project:** {day_plan['mini_project']}")
+
+                    st.markdown("### 📊 Pathway Summary")
+                    summary_col1, summary_col2 = st.columns(2)
+                    with summary_col1:
+                        st.metric("Duration", f"{num_days} Days")
+                        st.metric("Skills to Learn", len(skill_gaps))
+                    with summary_col2:
+                        st.metric("Daily Time", f"{pathway.get('estimated_daily_hours', 2)} hours")
+                        st.metric("Projects", len([d for d in pathway['daily_plans'] if d.get('mini_project')]))
+
+                    pathway_json = json.dumps(pathway, indent=2)
+                    st.download_button(
+                        "📥 Download Full Pathway (JSON)",
+                        pathway_json,
+                        file_name=f"learning_pathway_{num_days}day.json",
+                        mime="application/json"
+                    )
                 else:
+                    # No skills to learn
                     st.info("💡 No skill gaps to generate pathway. You matched all required skills!")
-                    st.stop()
+                    st.success("🎉 Great job! You're well-qualified for this position.")
 
-
-
-
-                
-                # Determine days
-                days_map = {
-                    "7-Day Quick Start": 7,
-                    "14-Day Accelerated": 14,
-                    "30-Day Comprehensive": 30
-                }
-                num_days = days_map[pathway_duration]
-                
-                # Generate pathway (use session state data)
-                pathway = pathway_gen.generate_pathway(
-                    skill_gaps,
-                    st.session_state.jd_data,  # ← Use session state
-                    num_days
-                )
-                
-                st.success(f"✅ **{num_days}-Day Learning Plan Created!**")
-                
-                # Display pathway
-                st.markdown("### 📋 Your Learning Roadmap")
-                
-                for day_plan in pathway['daily_plans'][:5]:  # Show first 5 days
-                    with st.expander(f"📅 Day {day_plan['day']}: {day_plan['focus']}", expanded=(day_plan['day']==1)):
-                        st.markdown(f"**🎯 Goal:** {day_plan['goal']}")
-                        
-                        st.markdown("**📚 Tasks:**")
-                        for task in day_plan['tasks']:
-                            st.markdown(f"- {task}")
-                        
-                        if day_plan.get('resources'):
-                            st.markdown("**🔗 Resources:**")
-                            for resource in day_plan['resources'][:3]:
-                                st.markdown(f"- {resource}")
-                        
-                        if day_plan.get('mini_project'):
-                            st.info(f"💡 **Mini-Project:** {day_plan['mini_project']}")
-                
-                # Show summary
-                st.markdown("### 📊 Pathway Summary")
-                summary_col1, summary_col2 = st.columns(2)
-                
-                with summary_col1:
-                    st.metric("Duration", f"{num_days} Days")
-                    st.metric("Skills to Learn", len(skill_gaps))
-                
-                with summary_col2:
-                    st.metric("Daily Time", f"{pathway.get('estimated_daily_hours', 2)} hours")
-                    st.metric("Projects", len([d for d in pathway['daily_plans'] if d.get('mini_project')]))
-                
-                # Download option
-                pathway_json = json.dumps(pathway, indent=2)
-                st.download_button(
-                    "📥 Download Full Pathway (JSON)",
-                    pathway_json,
-                    file_name=f"learning_pathway_{num_days}day.json",
-                    mime="application/json"
-                )
-            
             except Exception as e:
                 st.error(f"❌ Could not generate learning pathway: {str(e)}")
                 st.info("💡 Make sure you have skill gaps identified from the match analysis above")
-    
-    # Export options
+
+    # -----------------------------------------------------------------------
+    # EXPORT OPTIONS
+    # -----------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### 📥 Export Results")
-    
+
     export_col1, export_col2, export_col3 = st.columns(3)
-    
+
     with export_col1:
         report = {
             'match_result': match_result,
@@ -1030,44 +877,47 @@ if st.session_state.match_result and 'breakdown' in st.session_state.match_resul
             mime="application/json",
             use_container_width=True
         )
-    
+
     with export_col2:
         if st.button("📝 Improve CV", use_container_width=True):
             st.switch_page("pages/2_📝_CV_Generator.py")
-    
+
     with export_col3:
         if st.button("🎓 Interview Prep", use_container_width=True):
             st.switch_page("pages/3_🎓_Interview_Prep.py")
 
-# ADD THIS SECTION after displaying match results
+# ============================================================================
+# SECTION 4: AI INSIGHTS (outside results block - always visible)
+# ============================================================================
 st.markdown("---")
 st.markdown("### 🤖 AI-Powered Insights")
 
 if st.button("🧠 Get AI Analysis", use_container_width=True):
-    with st.spinner("🤖 AI is analyzing your match..."):
-        try:
-            from src.generation.cv_optimizer import CVOptimizer
-            
-            optimizer = CVOptimizer()
-            
-            # Get CV and JD text
-            cv_text = st.session_state.cv_data.get('text', '')
-            jd_text = st.session_state.jd_data.get('text', '')
-            
-            # Get missing skills
-            missing_skills = []
-            req_details = match_result['breakdown']['required_skills'].get('details', {})
-            if 'missing_skills' in req_details:
-                missing_skills = req_details['missing_skills']
-            elif 'skills' in req_details:
-                for skill_item in req_details['skills']:
-                    if isinstance(skill_item, dict) and not skill_item.get('matched', False):
-                        missing_skills.append(skill_item.get('skill', 'Unknown'))
-            if not missing_skills:
-                   missing_skills = ['No specific gaps identified']
-            
-            # Call LLM for insights
-            prompt = f"""Analyze this CV-JD match and provide actionable advice.
+    if not st.session_state.match_result:
+        st.warning("⚠️ Please run a match analysis first.")
+    else:
+        with st.spinner("🤖 AI is analyzing your match..."):
+            try:
+                from src.generation.cv_optimizer import CVOptimizer
+
+                optimizer = CVOptimizer()
+
+                match_result = st.session_state.match_result
+                cv_text_ai = st.session_state.cv_data.get('text', '')
+                jd_text_ai = st.session_state.jd_data.get('text', '')
+
+                missing_skills = []
+                req_details = match_result['breakdown']['required_skills'].get('details', {})
+                if 'missing_skills' in req_details:
+                    missing_skills = req_details['missing_skills']
+                elif 'skills' in req_details:
+                    for skill_item in req_details['skills']:
+                        if isinstance(skill_item, dict) and not skill_item.get('matched', False):
+                            missing_skills.append(skill_item.get('skill', 'Unknown'))
+                if not missing_skills:
+                    missing_skills = ['No specific gaps identified']
+
+                prompt = f"""Analyze this CV-JD match and provide actionable advice.
 
 Match Score: {match_result['overall_percentage']}
 Missing Skills: {', '.join(missing_skills[:5])}
@@ -1079,91 +929,95 @@ Provide:
 
 Keep response under 200 words, bullet points."""
 
-            import requests
-            response = requests.post(
-                "http://localhost:11434/api/generate",
-                json={
-                    "model": "gemma2:2b",
-                    "prompt": prompt,
-                    "stream": False
-                },
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                ai_insights = response.json().get('response', '')
-                st.success("✅ AI Analysis Complete!")
-                st.markdown(ai_insights)
-            else:
-                st.warning("⚠️ AI analysis unavailable. Ollama not running.")
-                
-        except Exception as e:
-            st.warning(f"⚠️ AI analysis unavailable: {str(e)}")
+                import requests
+                response = requests.post(
+                    "http://localhost:11434/api/generate",
+                    json={
+                        "model": "gemma2:2b",
+                        "prompt": prompt,
+                        "stream": False
+                    },
+                    timeout=60
+                )
 
-# DAY 23 FEATURE: Cache Control
+                if response.status_code == 200:
+                    ai_insights = response.json().get('response', '')
+                    st.success("✅ AI Analysis Complete!")
+                    st.markdown(ai_insights)
+                else:
+                    st.warning("⚠️ AI analysis unavailable. Ollama not running.")
+
+            except Exception as e:
+                st.warning(f"⚠️ AI analysis unavailable: {str(e)}")
+
+# ============================================================================
+# SECTION 5: PERFORMANCE TOOLS
+# ============================================================================
 if st.checkbox("🔧 Show Performance Tools", value=False):
     st.markdown("### 🛠️ Performance Tools")
-    
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
         if st.button("🗑️ Clear All Caches", use_container_width=True):
             st.cache_data.clear()
             st.cache_resource.clear()
             st.success("✅ All caches cleared!")
             st.info("💡 Caches will rebuild on next use")
-    
+
     with col2:
         if st.button("🧹 Cleanup Memory", use_container_width=True):
             gc.collect()
             st.success("✅ Memory cleaned!")
-    
+
     st.markdown("**Cache Status:**")
     st.info(f"Optimization: {'✅ Enabled' if OPTIMIZATION_ENABLED else '❌ Disabled'}")
 
-# Help section
+# ============================================================================
+# SECTION 6: HELP
+# ============================================================================
 with st.expander("ℹ️ How does matching work?"):
     st.markdown("""
     ### AI-Powered Semantic Matching
-    
+
     **Our system uses:**
-    
+
     1. **Semantic Embeddings** 🧠
        - Converts skills to 384-dimensional vectors
        - Captures meaning, not just keywords
        - Example: "Python" ≈ "Python programming" ≈ "Python development"
-    
+
     2. **Cosine Similarity** 📐
        - Measures angle between vectors (0-1 scale)
        - Threshold: 0.70 for "Strong Match"
        - Accounts for synonyms and variations
-    
+
     3. **Weighted Scoring** ⚖️
        - Required skills: 60% weight
        - Preferred skills: 25% weight
        - Experience: 15% weight
-    
+
     4. **Evidence Citation** 📝
        - Links each skill to specific CV sentences
        - Shows confidence scores
        - Helps you verify the match
-    
+
     ### Interpreting Scores:
-    
+
     - 🟢 **75%+** = Excellent Match (Apply immediately!)
     - 🔵 **60-75%** = Good Match (Strong candidate)
     - 🟡 **45-60%** = Moderate Match (Consider upskilling)
     - 🔴 **<45%** = Weak Match (Significant skill gaps)
-    
+
     ### Tips for Better Matches:
-    
+
     - ✅ Use exact skill names from job description
     - ✅ Include synonyms (e.g., "JS" and "JavaScript")
     - ✅ Quantify your experience (years, projects)
     - ✅ Add context to skills (not just lists)
-    
+
     ### Processing Time:
-    
+
     - **6-10 seconds** is normal for AI semantic matching
     - Shows real AI/ML computation is happening
     - Much more accurate than simple keyword matching
@@ -1171,20 +1025,20 @@ with st.expander("ℹ️ How does matching work?"):
 
 with st.expander("⌨️ Keyboard Shortcuts & Tips"):
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.markdown("""
         **Navigation:**
         - Use sidebar to switch pages
         - Browser back/forward may break state
         - Refresh (F5) resets session data
-        
+
         **File Upload:**
         - Drag and drop supported
         - Click to browse files
         - Max size: 10MB per file
         """)
-    
+
     with col2:
         st.markdown("""
         **Tips:**
