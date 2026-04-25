@@ -327,9 +327,11 @@ class CVGenerator:
 
 # Convenience function
 def generate_cv(personal_info: Dict,
-               experience: List[Dict],
-               education: List[Dict],
-               skills: List[str],
+               experience: List[Dict] = None,
+               education: List[Dict] = None,
+               skills: List[str] = None,
+               projects: Optional[List[Dict]] = None,
+               certifications: Optional[List[str]] = None,
                **kwargs) -> Document:
     """Quick CV generation function"""
     generator = CVGenerator()
