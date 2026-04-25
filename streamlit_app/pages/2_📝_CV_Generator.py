@@ -816,9 +816,13 @@ We'll match YOUR skills automatically!""",
             match_result = scoring_engine.compute_match_score(cv_data, jd_data)
             
             # Extract matched skills
-            required_skills_details = match_result['breakdown']['required_skills']['details']['skills']
-            matched_skills = [s['skill'] for s in required_skills_details if s['matched']]
-            missing_skills = [s['skill'] for s in required_skills_details if not s['matched']]
+           # required_skills_details = match_result['breakdown']['required_skills']['details']['skills']
+            #matched_skills = [s['skill'] for s in required_skills_details if s['matched']]
+            #missing_skills = [s['skill'] for s in required_skills_details if not s['matched']]
+            
+            req_details = match_result['breakdown']['required_skills']['details']
+            matched_skills = req_details.get('matched_skills', [])
+            missing_skills = req_details.get('missing_skills', [])
             
             st.success(f"✅ Match score: {match_result['overall_percentage']} | {len(matched_skills)} skills matched")
             time.sleep(0.3)
@@ -1024,21 +1028,39 @@ elif "Extract from Documents" in generation_mode:
                         tmp.write(doc.read())
                         tmp_path = tmp.name
                     
-                    # Parse based on type
+            # Parse based on type
                     if doc.name.lower().endswith(('.pdf', '.docx', '.txt')):
                         doc_data = cv_parser.parse(tmp_path)
-                        
+    
+                # Extract education safely
                         if 'education' in doc_data.get('sections', {}):
-                            extracted_data['education'].append(doc_data['sections']['education'])
-                        
+                            edu_data = doc_data['sections']['education']
+                            if isinstance(edu_data, str):
+                                extracted_data['education'].append(edu_data)
+                            elif isinstance(edu_data, list):
+                                extracted_data['education'].extend([str(e) for e in edu_data])
+    
+    # Extract skills safely - FIXED TO HANDLE BOTH STRING AND LIST
                         if 'skills' in doc_data.get('sections', {}):
-                            skills_text = doc_data['sections']['skills']
-                            skills = [s.strip() for s in skills_text.replace('\n', ',').split(',') if s.strip()]
-                            extracted_data['skills'].extend(skills)
-                        
+                            skills_data = doc_data['sections']['skills']
+        
+                            if isinstance(skills_data, str):
+            # It's a string: replace newlines with commas and split
+                                skills_text = skills_data.replace('\n', ',')
+                                skills = [s.strip() for s in skills_text.split(',') if s.strip()]
+                                extracted_data['skills'].extend(skills)
+                            elif isinstance(skills_data, list):
+            # It's already a list: convert items to strings
+                                extracted_data['skills'].extend([str(s).strip() for s in skills_data if s])
+    
+                    # Extract experience safely
                         if 'experience' in doc_data.get('sections', {}):
-                            extracted_data['experience'].append(doc_data['sections']['experience'])
-                    
+                            exp_data = doc_data['sections']['experience']
+                            if isinstance(exp_data, str):
+                                extracted_data['experience'].append(exp_data)
+                            elif isinstance(exp_data, list):
+                                extracted_data['experience'].extend([str(e) for e in exp_data])                    
+                 
                     elif doc.name.lower().endswith(('.png', '.jpg', '.jpeg')):
                         try:
                             from src.validation.eligibility_validator import EligibilityValidator
@@ -1190,6 +1212,8 @@ elif "Extract from Documents" in generation_mode:
                     generator = CVGenerator()
                     doc = generator.generate_cv(
                         personal_info=personal_info,
+                        experience=None,
+                        education=None,
                         skills=final_skills,
                         certifications=extracted.get('certifications', [])[:10]
                     )
@@ -1424,6 +1448,8 @@ elif "Improve Existing CV" in generation_mode:
                     generator = CVGenerator()
                     doc = generator.generate_cv(
                         personal_info=personal_info,
+                        experience=None,
+                        education=None,
                         skills=optimized_skills
                     )
                     
