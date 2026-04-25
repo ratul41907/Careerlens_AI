@@ -20,7 +20,7 @@ class InterviewGuidance:
             ollama_url: Ollama API endpoint
         """
         self.ollama_url = ollama_url
-        self.model = "gemma"
+        self.model = "gemma:latest"  # Use latest version of Gemma for best results
     
     def _call_ollama(self, prompt: str, max_tokens: int = 1500) -> str:
         """Call Ollama LLM API"""

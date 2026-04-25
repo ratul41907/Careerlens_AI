@@ -933,7 +933,7 @@ Keep response under 200 words, bullet points."""
                 response = requests.post(
                     "http://localhost:11434/api/generate",
                     json={
-                        "model": "gemma",
+                        "model": "gemma:latest",
                         "prompt": prompt,
                         "stream": False
                     },

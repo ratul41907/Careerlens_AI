@@ -22,7 +22,7 @@ class LearningPathwayGenerator:
             ollama_url: Ollama API endpoint
         """
         self.ollama_url = ollama_url
-        self.model = "gemma"
+        self.model = "gemma:latest"
     
     def _call_ollama(self, prompt: str, max_tokens: int = 1000) -> str:
         """
