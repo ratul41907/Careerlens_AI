@@ -22,7 +22,7 @@ class LearningPathwayGenerator:
             ollama_url: Ollama API endpoint
         """
         self.ollama_url = ollama_url
-        self.model = "gemma:latest"
+        self.model = "gemma:latest"  # ✅ FIXED - use correct model
     
     def _call_ollama(self, prompt: str, max_tokens: int = 1000) -> str:
         """
@@ -299,6 +299,48 @@ Now list 4 tasks for day {day} learning {skill} ({level} level):"""
         
         return tasks[:4]
     
+    def _generate_goal(self, skill: str, day: int, total_days: int) -> str:
+        """
+        Generate learning goal for the day using LLM
+        
+        Args:
+            skill: Skill name
+            day: Current day number
+            total_days: Total pathway days
+            
+        Returns:
+            Goal description
+        """
+        if day <= total_days * 0.3:
+            level = "fundamentals"
+        elif day <= total_days * 0.6:
+            level = "intermediate concepts"
+        else:
+            level = "advanced techniques"
+        
+        prompt = f"""Write a one-sentence learning goal for day {day} of a {total_days}-day {skill} course.
+Focus on {level}.
+
+Format: "Learn/Master/Understand [specific topic]"
+
+Examples:
+- Learn Python syntax and basic data structures
+- Master React component lifecycle and hooks
+- Understand Docker containerization principles
+
+Now write the goal for day {day} of {skill} ({level}):"""
+
+        response = self._call_ollama(prompt, max_tokens=100)
+        
+        # Get first meaningful line
+        lines = [l.strip() for l in response.split('\n') if l.strip()]
+        goal = lines[0] if lines else f"Learn {skill} {level}"
+        
+        # Clean up common prefixes
+        goal = goal.lstrip('•*-–—►▸▹▪▫1234567890.)> ')
+        
+        return goal
+    
     def _generate_mini_project(self, skill: str, day: int, total_days: int) -> str:
         """
         Generate mini project for the day using LLM
@@ -388,6 +430,9 @@ Now suggest a {complexity} {skill} project:"""
             # Generate daily tasks
             tasks = self._generate_daily_tasks(current_skill, day, num_days)
             
+            # Generate goal - ✅ ADDED
+            goal = self._generate_goal(current_skill, day, num_days)
+            
             # Generate mini project
             mini_project = self._generate_mini_project(current_skill, day, num_days)
             
@@ -402,6 +447,7 @@ Now suggest a {complexity} {skill} project:"""
             plan = {
                 "day": day,
                 "focus": f"Day {day}: {current_skill}",
+                "goal": goal,  # ✅ ADDED
                 "tasks": tasks,
                 "resources": {
                     "YouTube Playlists 🎥": youtube[:3],
