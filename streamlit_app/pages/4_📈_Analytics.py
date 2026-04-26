@@ -14,9 +14,17 @@ import random
 # Mobile responsiveness - Day 25
 import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from utils.mobile_styles import inject_mobile_styles
-inject_mobile_styles()
+
+# Add utils path consistently with other pages
+utils_path = os.path.join(os.path.dirname(__file__), '..')
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+
+try:
+    from utils.mobile_styles import inject_mobile_styles
+    inject_mobile_styles()
+except ImportError:
+    pass  # Mobile styles optional
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))

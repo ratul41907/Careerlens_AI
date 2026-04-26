@@ -6,11 +6,12 @@ try:
     __all__ = ['InterviewGuidance', 'LearningPathwayGenerator']
 except ImportError:
     try:
-        from .interview_guidance import InterviewGuidanceSystem
-        InterviewGuidance = InterviewGuidanceSystem
+        from .interview_guidance import InterviewGuidance
+        from .learning_pathways import LearningPathwayGenerator
         __all__ = ['InterviewGuidance', 'LearningPathwayGenerator']
-    except ImportError:
-        pass
+    except ImportError as e:
+        print(f"Warning: guidance module import failed: {e}")
+
 
 try:
     from .learning_pathways import LearningPathwayGenerator

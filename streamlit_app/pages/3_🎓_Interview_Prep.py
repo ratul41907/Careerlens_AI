@@ -559,8 +559,8 @@ elif "Evaluate My Answer" in mode:
         result = st.session_state.evaluation_result
         
         # Overall score
-        score = result['overall_score']
-        rating = result['rating']
+        score = result.get('overall_score', result.get('score', 0))
+        rating = result.get('rating', 'Evaluated')
         
         # Color based on rating
         if rating == "Excellent":
