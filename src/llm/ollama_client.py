@@ -13,7 +13,7 @@ class OllamaClient:
     """
     
     def __init__(self,
-                 model: str = "gemma2:2b",
+                 model: str = "gemma:latest",
                  base_url: str = "http://localhost:11434"):
         """
         Initialize Ollama client
@@ -151,6 +151,6 @@ class OllamaClient:
 
 
 # Convenience function
-def get_ollama_client(model: str = "gemma2:2bb") -> OllamaClient:
+def get_ollama_client(model: str = "gemma:latest") -> OllamaClient:
     """Get Ollama client instance"""
     return OllamaClient(model=model)

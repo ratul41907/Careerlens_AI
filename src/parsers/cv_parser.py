@@ -34,7 +34,7 @@ class CVParser:
 
     def __init__(self, ollama_url: str = "http://localhost:11434"):
         self.ollama_url = ollama_url
-        self.model = "gemma2:2b"
+        self.model = "gemma:latest"
 
     def _call_ollama(self, prompt: str, max_tokens: int = 1500) -> str:
         """Call Ollama LLM API"""

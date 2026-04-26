@@ -20,7 +20,7 @@ class JDParser:
             ollama_url: Ollama API endpoint
         """
         self.ollama_url = ollama_url
-        self.model = "gemma2:2b"
+        self.model = "gemma:latest"
     
     def _call_ollama(self, prompt: str, max_tokens: int = 1500) -> str:
         """Call Ollama LLM API"""

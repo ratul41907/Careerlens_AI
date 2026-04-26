@@ -762,6 +762,10 @@ if st.session_state.match_result:
     # -----------------------------------------------------------------------
     # LEARNING PATHWAY (CORRECT LOCATION - after results, single copy)
     # -----------------------------------------------------------------------
+ # -----------------------------------------------------------------------
+    # LEARNING PATHWAY (fixed section - paste this into 1_📊_CV_Matcher.py)
+    # Replace the entire "LEARNING PATHWAY" section in the file
+    # -----------------------------------------------------------------------
     st.markdown("---")
     st.markdown("### 📚 Personalized Learning Pathway")
 
@@ -789,18 +793,17 @@ if st.session_state.match_result:
                         if isinstance(skill_detail, dict) and not skill_detail.get('matched', False):
                             skill_gaps.append(skill_detail['skill'])
 
-                # If no gaps found, let user enter manually
+                # Fallback: let user enter skills manually if none found
                 if not skill_gaps:
-                    st.warning("⚠️ Could not identify missing skills from match analysis.")
-                    skill_gaps_manual = st.text_input(
-                        "Enter skills to learn (comma-separated):",
-                        placeholder="e.g., Kubernetes, Docker, GraphQL",
-                        key="manual_skill_input_pathway"
+                    st.warning("⚠️ Could not auto-detect skill gaps. Enter skills to learn:")
+                    manual_skills = st.text_input(
+                        "Skills (comma-separated):",
+                        placeholder="Docker, Kubernetes, AWS",
+                        key="manual_pathway_skills"
                     )
-                    if skill_gaps_manual:
-                        skill_gaps = [s.strip() for s in skill_gaps_manual.split(',') if s.strip()]
+                    if manual_skills:
+                        skill_gaps = [s.strip() for s in manual_skills.split(',') if s.strip()]
 
-                # ONLY generate pathway if we have skills
                 if skill_gaps:
                     days_map = {
                         "7-Day Quick Start": 7,
@@ -815,48 +818,70 @@ if st.session_state.match_result:
                         num_days
                     )
 
-                    st.success(f"✅ **{num_days}-Day Learning Plan Created!**")
+                    if pathway.get('success'):
+                        st.success(f"✅ **{num_days}-Day Learning Plan Created!**")
 
-                    st.markdown("### 📋 Your Learning Roadmap")
+                        # Summary metrics
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Duration", f"{num_days} Days")
+                        with col2:
+                            st.metric("Focus Skills", len(pathway['focus_skills']))
+                        with col3:
+                            st.metric("Completion", pathway['completion_date'])
 
-                    for day_plan in pathway['daily_plans'][:5]:
-                        with st.expander(f"📅 Day {day_plan['day']}: {day_plan['focus']}", expanded=(day_plan['day'] == 1)):
-                            st.markdown(f"**🎯 Goal:** {day_plan['goal']}")
-                            st.markdown("**📚 Tasks:**")
-                            for task in day_plan['tasks']:
-                                st.markdown(f"- {task}")
-                            if day_plan.get('resources'):
-                                st.markdown("**🔗 Resources:**")
-                                for resource in day_plan['resources'][:3]:
-                                    st.markdown(f"- {resource}")
-                            if day_plan.get('mini_project'):
-                                st.info(f"💡 **Mini-Project:** {day_plan['mini_project']}")
+                        st.info(f"🎯 **Focus Skills:** {', '.join(pathway['focus_skills'])}")
 
-                    st.markdown("### 📊 Pathway Summary")
-                    summary_col1, summary_col2 = st.columns(2)
-                    with summary_col1:
-                        st.metric("Duration", f"{num_days} Days")
-                        st.metric("Skills to Learn", len(skill_gaps))
-                    with summary_col2:
-                        st.metric("Daily Time", f"{pathway.get('estimated_daily_hours', 2)} hours")
-                        st.metric("Projects", len([d for d in pathway['daily_plans'] if d.get('mini_project')]))
+                        # Show daily plans - first 5 days expanded preview
+                        st.markdown("### 📋 Your Daily Roadmap")
+                        for day_plan in pathway['daily_plans'][:min(5, num_days)]:
+                            with st.expander(
+                                f"📅 {day_plan['focus']}  ·  ⏱ {day_plan.get('time_estimate', '3-4 hours')}",
+                                expanded=(day_plan['day'] == 1)
+                            ):
+                                goal = day_plan.get('goal', '')
+                                if goal:
+                                    st.markdown(f"**🎯 Goal:** {goal}")
 
-                    pathway_json = json.dumps(pathway, indent=2)
-                    st.download_button(
-                        "📥 Download Full Pathway (JSON)",
-                        pathway_json,
-                        file_name=f"learning_pathway_{num_days}day.json",
-                        mime="application/json"
-                    )
+                                st.markdown("**📝 Tasks:**")
+                                for task in day_plan.get('tasks', []):
+                                    st.markdown(f"- {task}")
+
+                                resources = day_plan.get('resources', {})
+                                if resources:
+                                    st.markdown("**🔗 Resources:**")
+                                    for res_type, items in resources.items():
+                                        if items:
+                                            st.markdown(f"*{res_type}*")
+                                            for item in items[:2]:
+                                                st.markdown(f"  - {item}")
+
+                                mini_project = day_plan.get('mini_project', '')
+                                if mini_project:
+                                    st.info(f"💡 **Mini-Project:** {mini_project}")
+
+                        if num_days > 5:
+                            st.caption(f"*Showing first 5 of {num_days} days. Download full plan below.*")
+
+                        # Download full pathway
+                        pathway_json = json.dumps(pathway, indent=2)
+                        st.download_button(
+                            "📥 Download Full Pathway (JSON)",
+                            pathway_json,
+                            file_name=f"learning_pathway_{num_days}day.json",
+                            mime="application/json"
+                        )
+                    else:
+                        st.error(f"❌ {pathway.get('error', 'Generation failed')}")
                 else:
-                    # No skills to learn
-                    st.info("💡 No skill gaps to generate pathway. You matched all required skills!")
-                    st.success("🎉 Great job! You're well-qualified for this position.")
+                    st.info("💡 All required skills matched — no gaps to create a pathway for!")
+                    st.success("🎉 You're well-qualified for this position.")
 
             except Exception as e:
                 st.error(f"❌ Could not generate learning pathway: {str(e)}")
-                st.info("💡 Make sure you have skill gaps identified from the match analysis above")
-
+                import traceback
+                with st.expander("Debug info"):
+                    st.code(traceback.format_exc())
     # -----------------------------------------------------------------------
     # EXPORT OPTIONS
     # -----------------------------------------------------------------------
