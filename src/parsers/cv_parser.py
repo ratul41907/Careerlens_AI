@@ -407,33 +407,4 @@ CERTIFICATIONS
     print(f"Skills: {len(result['sections'].get('skills', []))}")
     print(f"Experience: {result['sections'].get('experience', 'N/A')}")
     print(f"_segment_sections works: {hasattr(parser, '_segment_sections')}")
-    def _segment_sections(self, text: str) -> Dict:
-        """Parse plain text CV into structured sections."""
-        sections = {}
-
-        email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
-        if email_match:
-            sections['email'] = email_match.group(0)
-
-        phone_match = re.search(r'[\+\d][\d\-\(\)\s]{8,}', text)
-        if phone_match:
-            sections['phone'] = phone_match.group(0).strip()
-
-        common_skills = [
-            'Python', 'JavaScript', 'Java', 'C++', 'React', 'Node', 'Django',
-            'FastAPI', 'SQL', 'MongoDB', 'Docker', 'Kubernetes', 'AWS', 'Git',
-            'TypeScript', 'Flask', 'PostgreSQL', 'MySQL', 'Redis', 'HTML', 'CSS'
-        ]
-        found_skills = [s for s in common_skills if s.lower() in text.lower()]
-        if found_skills:
-            sections['skills'] = found_skills
-
-        exp_match = re.search(r'(\d+)\+?\s*(?:years?|yrs?)', text, re.IGNORECASE)
-        if exp_match:
-            sections['experience'] = f"{exp_match.group(1)} years"
-
-        name_lines = [l.strip() for l in text.split('\n') if l.strip()]
-        if name_lines:
-            sections['name'] = name_lines[0]
-
-        return sections
+   

@@ -17,16 +17,16 @@ sys.path.insert(0, str(project_root))
 try:
     from src.parsers.cv_parser import CVParser
     from src.parsers.jd_parser import JDParser
-    from src.embeddings.embedding_engine import EmbeddingEngine as SemanticEmbeddings
-    from src.scoring.scoring_engine import MatchScorer
+    from src.embeddings.embedding_engine import EmbeddingEngine          # was: SemanticEmbeddings
+    from src.scoring.scoring_engine import ScoringEngine                 # was: MatchScorer
     from src.scoring.explainability import ExplainabilityEngine
     from src.generation.cv_generator import CVGenerator
-    from src.guidance.interview_guidance import InterviewGuidanceSystem
+    from src.guidance.interview_guidance import InterviewGuidance        # was: InterviewGuidanceSystem
     modules_available = True
 except ImportError as e:
-    print(f"⚠️ Warning: Some modules not available: {e}")
+    print(f"Warning: Some modules not available: {e}")
     modules_available = False
-
+    
 # Initialize FastAPI app
 app = FastAPI(
     title="CareerLens AI API",
@@ -48,18 +48,17 @@ if modules_available:
     try:
         cv_parser = CVParser()
         jd_parser = JDParser()
-        embeddings = SemanticEmbeddings()
-        scorer = MatchScorer(embeddings)
+        embeddings = EmbeddingEngine()                    # was: SemanticEmbeddings()
+        scorer = ScoringEngine(embeddings)                # was: MatchScorer(embeddings)
         explainer = ExplainabilityEngine()
         cv_generator = CVGenerator()
-        interview_system = InterviewGuidanceSystem()
+        interview_system = InterviewGuidance()            # was: InterviewGuidanceSystem()
         components_initialized = True
     except Exception as e:
-        print(f"⚠️ Warning: Failed to initialize components: {e}")
+        print(f"Warning: Failed to initialize components: {e}")
         components_initialized = False
 else:
     components_initialized = False
-
 # ============================================================================
 # REQUEST/RESPONSE MODELS
 # ============================================================================
