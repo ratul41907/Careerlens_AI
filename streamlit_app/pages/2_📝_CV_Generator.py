@@ -594,29 +594,55 @@ if "Manual Entry" in generation_mode:
                 'summary': summary if summary else None
             }
             
-            # LLM-Powered JD Optimization
+ # LLM-Powered JD Optimization
             if manual_jd_text and manual_jd_text.strip():
                 status_text.info("🤖 **Step 2/4:** AI is optimizing your CV for the job...")
                 progress_bar.progress(45)
                 
-                optimizer = CVOptimizer()
-                optimization = optimizer.optimize_manual_cv_for_jd(
-                    personal_info=personal_info,
-                    experiences=experiences,
-                    education=education,
-                    skills=skills,
-                    jd_text=manual_jd_text
-                )
+                try:
+                    optimizer = CVOptimizer()
+                    
+                    optimization = optimizer.optimize_manual_cv_for_jd(
+                        personal_info=personal_info,
+                        experiences=experiences,
+                        education=education,
+                        skills=skills,
+                        jd_text=manual_jd_text
+                    )
+                    
+                    # Apply LLM results
+                    skills = optimization.get('prioritized_skills', skills)[:20]
+                    
+                    if optimization.get('optimized_summary'):
+                        personal_info['summary'] = optimization['optimized_summary']
+                    
+                    matched_skills = optimization.get('matched_skills', [])
+                    missing_jd_skills = optimization.get('missing_skills', [])
+                    matched_count = len(matched_skills)
+                    
+                    st.success(f"✅ AI optimized: {matched_count} skills matched & summary improved")
+                    
+                    # Show detailed improvements
+                    with st.expander("🤖 AI Improvements Made", expanded=True):
+                        st.info(optimization.get('improvement_summary', 'CV optimized successfully.'))
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown("**✅ Matched Skills:**")
+                            for skill in matched_skills[:5]:
+                                st.markdown(f"• {skill}")
+                        with col2:
+                            st.markdown("**➕ Skills to Add:**")
+                            for skill in missing_jd_skills[:5]:
+                                st.markdown(f"• {skill}")
+                    
+                    time.sleep(0.5)
                 
-                # Apply LLM results
-                skills = optimization['prioritized_skills'][:20]
-                
-                if optimization.get('optimized_summary'):
-                    personal_info['summary'] = optimization['optimized_summary']
-                
-                matched_count = len(optimization.get('matched_skills', []))
-                st.success(f"✅ AI optimized: {matched_count} skills matched & summary improved")
-                time.sleep(0.5)
+                except Exception as e:
+                    st.warning(f"⚠️ LLM optimization unavailable: {str(e)}")
+                    # Fallback - CV still works fine, just without LLM enhancement
+                    st.info("💡 CV will be generated with your provided skills (LLM service unavailable)")
+                    time.sleep(0.5)
             
             status_text.info("🎨 **Step 3/4:** Generating professional CV with ATS optimization...")
             progress_bar.progress(75)
@@ -890,13 +916,14 @@ We'll match YOUR skills automatically!""",
             if education_text:
                 lines = [l.strip() for l in education_text.split('\n') if l.strip()]
                 if lines:
+                    raw_edu_text = education_text
+                    gpa_match = re.search(r'(?:GPA|CGPA)[:\s]+(\d+\.\d+)', raw_edu_text, re.IGNORECASE)
                     education_list.append({
                         'degree': lines[0],
                         'institution': lines[1] if len(lines) > 1 else 'University',
                         'year': lines[2] if len(lines) > 2 else 'Recent',
-                        'gpa': None
-                    })
-            
+                        'gpa': gpa_match.group(1) if gpa_match else None
+                    })            
             # Smart skill ordering (matched first)
             all_jd_skills = jd_data.get('required_skills', []) + jd_data.get('preferred_skills', [])
             ordered_skills = matched_skills + [s for s in all_jd_skills if s not in matched_skills]
@@ -1191,31 +1218,25 @@ elif "Extract from Documents" in generation_mode:
                         status_text.info("🤖 **Step 2/3:** AI is optimizing for job description...")
                         progress_bar.progress(66)
                         
-                        try:
-                            from src.generation.cv_optimizer import CVOptimizer
-                            
-                            optimizer = CVOptimizer()
-                            
-                            # Build CV summary from extracted data
-                            cv_summary = f"""
-                            Name: {doc_name if doc_name else 'Candidate'}
-                            Skills: {', '.join(all_skills[:20])}
-                            Education: {'; '.join([str(e)[:100] for e in extracted.get('education', [])])}
-                            Certifications: {'; '.join([str(c)[:80] for c in extracted.get('certifications', [])])}
-                            Experience: {'; '.join([str(e)[:100] for e in extracted.get('experience', [])])}
-                            """
-                        except:
-                            e = "CVOptimizer not available"
-                            st.warning(f"⚠️ LLM optimization unavailable: {str(e)}")
+                        optimizer = CVOptimizer()
+
+                        cv_summary = f"""
+Name: {doc_name if doc_name else 'Candidate'}
+Skills: {', '.join(all_skills[:20])}
+Education: {'; '.join([str(e)[:100] for e in extracted.get('education', [])])}
+Certifications: {'; '.join([str(c)[:80] for c in extracted.get('certifications', [])])}
+Experience: {'; '.join([str(e)[:100] for e in extracted.get('experience', [])])}
+"""
+
                         try:
                             optimization = optimizer.improve_existing_cv_with_jd(
                                 cv_text=cv_summary,
                                 cv_skills=all_skills,
                                 jd_text=doc_jd_text
-                        )
+                            )
                             final_skills = optimization.get('optimized_skill_order', all_skills)[:20]
-                            summary_text = optimization.get('enhanced_professional_summary', 
-                                            f"Professional with expertise in {', '.join(all_skills[:3])}.")
+                            summary_text = optimization.get('enhanced_professional_summary',
+                                           f"Professional with expertise in {', '.join(all_skills[:3])}.")
                             matched_skills = optimization.get('matched_skills', [])
                             missing_jd_skills = optimization.get('missing_skills', [])
                             st.success(f"✅ AI optimized: {len(matched_skills)} skills matched to JD!")
@@ -1225,19 +1246,9 @@ elif "Extract from Documents" in generation_mode:
                             st.warning(f"⚠️ LLM optimization unavailable: {str(e)}")
                             final_skills = all_skills[:20]
                             summary_text = f"Professional with expertise in {', '.join(all_skills[:3])}."
-                            
-                            st.success(f"✅ AI optimized: {len(improvement['matched_skills'])} skills matched!")
-                            
-                        except Exception as e:
-                            st.warning(f"⚠️ LLM unavailable, using basic optimization")
-                            final_skills = all_skills[:20]
-                            summary_text = f"Professional with expertise in {', '.join(all_skills[:3])}."
-                    else:
-                        final_skills = all_skills[:20]
-                        summary_text = f"Professional with expertise in {', '.join(all_skills[:3])}."
-                    
-                    status_text.info("✨ **Step 3/3:** Generating CV...")
-                    progress_bar.progress(90)
+                        else:    
+                            status_text.info("✨ **Step 3/3:** Generating CV...")
+                            progress_bar.progress(90)
                     
                     personal_info = {
                         'name': doc_name if doc_name else 'Your Name',
@@ -1246,13 +1257,46 @@ elif "Extract from Documents" in generation_mode:
                         'summary': summary_text
                     }
                     
+  # Extract structured experience from raw strings
+                    mode3_experience = []
+                    for item in extracted.get('experience', [])[:3]:
+                        parts = str(item).split(':')
+                        title = parts[0].strip() if parts else 'Developer'
+                        rest = parts[1].strip() if len(parts) > 1 else ''
+                        co_parts = rest.split('(')
+                        company = co_parts[0].strip() if co_parts else 'Company'
+                        duration = co_parts[1].rstrip(')').strip() if len(co_parts) > 1 else 'Present'
+                        mode3_experience.append({
+                            'title': title,
+                            'company': company,
+                            'duration': duration,
+                            'bullets': ['Contributed to software development']
+                        })
+
+                    # Extract structured education from raw strings
+                    mode3_education = []
+                    for item in extracted.get('education', [])[:2]:
+                        parts = str(item).split(':')
+                        degree = parts[0].strip() if parts else 'Degree'
+                        rest = parts[1].strip() if len(parts) > 1 else ''
+                        inst_parts = rest.split('(')
+                        institution = inst_parts[0].strip() if inst_parts else 'University'
+                        year = inst_parts[1].rstrip(')').strip() if len(inst_parts) > 1 else ''
+                        gpa_match = re.search(r'(?:GPA|CGPA)[:\s]+(\d+\.\d+)', str(item), re.IGNORECASE)
+                        mode3_education.append({
+                            'degree': degree,
+                            'institution': institution,
+                            'year': year,
+                            'gpa': gpa_match.group(1) if gpa_match else None
+                        })
+
                     generator = CVGenerator()
                     doc = generator.generate_cv(
                         personal_info=personal_info,
-                        experience=None,
-                        education=None,
+                        experience=mode3_experience if mode3_experience else None,
+                        education=mode3_education if mode3_education else None,
                         skills=final_skills,
-                        certifications=extracted.get('certifications', [])[:10]
+                        certifications=extracted.get('certifications', [])[:10] or None
                     )
                     
                     # Save
@@ -1482,12 +1526,45 @@ elif "Improve Existing CV" in generation_mode:
                         'summary': enhanced_summary
                     }
                     
+# Extract experience from work_history
+                    mode4_experience = []
+                    for item in cv_sections.get('work_history', [])[:3]:
+                        parts = str(item).split(':')
+                        title = parts[0].strip() if parts else 'Developer'
+                        rest = parts[1].strip() if len(parts) > 1 else ''
+                        co_parts = rest.split('(')
+                        company = co_parts[0].strip() if co_parts else 'Company'
+                        duration = co_parts[1].rstrip(')').strip() if len(co_parts) > 1 else 'Present'
+                        mode4_experience.append({
+                            'title': title,
+                            'company': company,
+                            'duration': duration,
+                            'bullets': ['Contributed to software development']
+                        })
+
+                    # Extract education
+                    mode4_education = []
+                    for item in cv_sections.get('education', [])[:2]:
+                        parts = str(item).split(':')
+                        degree = parts[0].strip() if parts else 'Degree'
+                        rest = parts[1].strip() if len(parts) > 1 else ''
+                        inst_parts = rest.split('(')
+                        institution = inst_parts[0].strip() if inst_parts else 'University'
+                        year = inst_parts[1].rstrip(')').strip() if len(inst_parts) > 1 else ''
+                        mode4_education.append({
+                            'degree': degree,
+                            'institution': institution,
+                            'year': year,
+                            'gpa': None
+                        })
+
                     generator = CVGenerator()
                     doc = generator.generate_cv(
                         personal_info=personal_info,
-                        experience=None,
-                        education=None,
-                        skills=optimized_skills
+                        experience=mode4_experience if mode4_experience else None,
+                        education=mode4_education if mode4_education else None,
+                        skills=optimized_skills,
+                        certifications=cv_sections.get('certifications', [])[:5] or None
                     )
                     
                     # Save
