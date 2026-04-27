@@ -568,11 +568,11 @@ if "Manual Entry" in generation_mode:
             st.stop()
         
         if warnings:
-            st.warning("⚠️ **Recommendations:**")
-            for warning in warnings:
-                st.markdown(f"- {warning}")
-            if not st.checkbox("I understand and want to continue anyway"):
-                st.stop()
+            st.warning("⚠️ **Recommendations:** " + " | ".join(warnings))            
+            #for warning in warnings:
+               # st.markdown(f"- {warning}")
+            #if not st.checkbox("I understand and want to continue anyway"):
+             #   st.stop()
         
         # PROGRESS TRACKING
         progress_bar = st.progress(0)
@@ -804,6 +804,10 @@ We'll match YOUR skills automatically!""",
             jd_parser = JDParser()
             jd_data = jd_parser.parse(target_jd_text)
             
+            # Normalize jd_data so required_skills is accessible at top level too
+            jd_sections = jd_data.get('sections', {})
+            jd_data['required_skills'] = jd_sections.get('required_skills', [])
+            jd_data['preferred_skills'] = jd_sections.get('preferred_skills', [])           
             st.success(f"✅ Found {len(jd_data.get('required_skills', []))} required skills")
             time.sleep(0.3)
             
@@ -824,6 +828,11 @@ We'll match YOUR skills automatically!""",
             matched_skills = req_details.get('matched_skills', [])
             missing_skills = req_details.get('missing_skills', [])
             
+            if not matched_skills and not missing_skills:
+                jd_skills_all = jd_data.get('required_skills', [])
+                cv_skills_raw = cv_data.get('sections', {}).get('skills', [])
+                matched_skills = [s for s in cv_skills_raw if any(s.lower() in j.lower() or j.lower() in s.lower() for j in jd_skills_all)]
+                missing_skills = [s for s in jd_skills_all if s not in matched_skills]
             st.success(f"✅ Match score: {match_result['overall_percentage']} | {len(matched_skills)} skills matched")
             time.sleep(0.3)
             
@@ -832,32 +841,48 @@ We'll match YOUR skills automatically!""",
             progress_bar.progress(80)
             
             cv_sections = cv_data.get('sections', {})
-            header_text = cv_sections.get('header', '')
-            
-            # Extract contact info
-            email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', header_text)
-            extracted_email = email_match.group(0) if email_match else 'your.email@example.com'
-            
-            phone_match = re.search(r'[\+\(]?[0-9][0-9\s\-\(\)]{7,}[0-9]', header_text)
-            extracted_phone = phone_match.group(0) if phone_match else '+1-234-567-8900'
-            
-            lines = [l.strip() for l in header_text.split('\n') if l.strip()]
-            extracted_name = lines[0] if lines else 'Your Name'
-            
+            full_text = cv_data.get('text', '')
+
+    # Extract from sections first, fall back to regex on full text
+            extracted_name = cv_sections.get('name', '')
+            extracted_email = cv_sections.get('email', '')
+            extracted_phone = cv_sections.get('phone', '')
+
+            if not extracted_email:
+                email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', full_text)
+                extracted_email = email_match.group(0) if email_match else 'your.email@example.com'
+            if not extracted_phone:
+                phone_match = re.search(r'[\+\(]?[0-9][0-9\s\-\(\)]{7,}[0-9]', full_text)
+                extracted_phone = phone_match.group(0) if phone_match else '+1-234-567-8900'
+            if not extracted_name:
+                lines = [l.strip() for l in full_text.split('\n') if l.strip()]
+                extracted_name = lines[0] if lines else 'Your Name'            
             # Parse experience
-            experience_text = cv_sections.get('experience', '')
+            #experience_text = cv_sections.get('experience', '')
             experience_list = []
-            if experience_text:
-                exp_sections = re.split(r'\n(?=[A-Z][a-z]+ (?:Engineer|Developer|Manager|Analyst))', experience_text)
-                for exp in exp_sections[:3]:
-                    lines = [l.strip() for l in exp.split('\n') if l.strip()]
-                    if len(lines) >= 2:
-                        experience_list.append({
-                            'title': lines[0],
-                            'company': lines[1] if len(lines) > 1 else 'Company',
-                            'duration': 'Present',
-                            'bullets': [l.lstrip('•-*').strip() for l in lines[2:] if l.strip()][:4]
-                        })
+#experience_list = []
+            work_history = cv_sections.get('work_history', [])
+            if work_history and isinstance(work_history, list):
+                for item in work_history[:3]:
+                    parts = str(item).split(':')
+                    title = parts[0].strip() if parts else 'Developer'
+                    rest = parts[1].strip() if len(parts) > 1 else ''
+                    company_parts = rest.split('(')
+                    company = company_parts[0].strip() if company_parts else 'Company'
+                    duration = company_parts[1].rstrip(')').strip() if len(company_parts) > 1 else 'Present'
+                    experience_list.append({
+                    'title': title,
+                    'company': company,
+                    'duration': duration,
+                    'bullets': ['Developed and maintained software systems', 'Collaborated with cross-functional teams']
+                })
+            elif cv_sections.get('experience', ''):
+                experience_list.append({
+                    'title': 'Software Engineer',
+                    'company': 'Previous Company',
+                    'duration': cv_sections.get('experience', 'Present'),
+                    'bullets': ['Developed software systems']
+    })
             
             # Parse education
             education_text = cv_sections.get('education', '')
@@ -1173,21 +1198,31 @@ elif "Extract from Documents" in generation_mode:
                             
                             # Build CV summary from extracted data
                             cv_summary = f"""
-    Skills: {', '.join(all_skills[:20])}
-    Education: {extracted.get('education', [])}
-    Certifications: {extracted.get('certifications', [])}
-    """
-                            
-                            # Use LLM to optimize
-                            improvement = optimizer.improve_existing_cv_with_jd(
+                            Name: {doc_name if doc_name else 'Candidate'}
+                            Skills: {', '.join(all_skills[:20])}
+                            Education: {'; '.join([str(e)[:100] for e in extracted.get('education', [])])}
+                            Certifications: {'; '.join([str(c)[:80] for c in extracted.get('certifications', [])])}
+                            Experience: {'; '.join([str(e)[:100] for e in extracted.get('experience', [])])}
+                            """
+
+                        try:
+                            optimization = optimizer.improve_existing_cv_with_jd(
                                 cv_text=cv_summary,
                                 cv_skills=all_skills,
                                 jd_text=doc_jd_text
-                            )
-                            
-                            # Use optimized results
-                            final_skills = improvement['optimized_skill_order'][:20]
-                            summary_text = improvement['enhanced_professional_summary']
+                        )
+                            final_skills = optimization.get('optimized_skill_order', all_skills)[:20]
+                            summary_text = optimization.get('enhanced_professional_summary', 
+                                            f"Professional with expertise in {', '.join(all_skills[:3])}.")
+                            matched_skills = optimization.get('matched_skills', [])
+                            missing_jd_skills = optimization.get('missing_skills', [])
+                            st.success(f"✅ AI optimized: {len(matched_skills)} skills matched to JD!")
+                            if missing_jd_skills:
+                                st.info(f"💡 Skills from JD added: {', '.join(missing_jd_skills[:5])}")
+                        except Exception as e:
+                            st.warning(f"⚠️ LLM optimization unavailable: {str(e)}")
+                            final_skills = all_skills[:20]
+                            summary_text = f"Professional with expertise in {', '.join(all_skills[:3])}."
                             
                             st.success(f"✅ AI optimized: {len(improvement['matched_skills'])} skills matched!")
                             
@@ -1420,7 +1455,7 @@ elif "Improve Existing CV" in generation_mode:
                             optimized_skills = cv_skills[:20]
                             matched_skills = [s for s in cv_skills if any(jd.lower() in s.lower() or s.lower() in jd.lower() for jd in jd_skills)]
                             missing_jd_skills = [s for s in jd_skills if not any(s.lower() in cv.lower() for cv in cv_skills)]
-                    
+                            enhanced_summary = f"Professional with expertise in {', '.join(optimized_skills[:3])}."
                     else:
                         optimized_skills = cv_skills[:20]
                     
@@ -1432,7 +1467,7 @@ elif "Improve Existing CV" in generation_mode:
                     phone_match = re.search(r'[\+\(]?[0-9][0-9\s\-\(\)]{7,}[0-9]', cv_text)
                     extracted_phone = phone_match.group(0) if phone_match else '+1-234-567-8900'
                     
-                    extracted_name = cv_sections.get('name', '') or (cv_text.split('\n')[0].strip()[:50] if cv_text else 'Your Name')
+                    extracted_name = cv_sections.get('name', '') or (cv_text.split('\n')[0].strip() if cv_text else 'Your Name')
                     
                     # Step 4: Generate improved CV
                     status_text.info("✨ **Step 4/5:** Generating improved CV...")
@@ -1509,7 +1544,7 @@ elif "Improve Existing CV" in generation_mode:
                     status_text.empty()
                     
                     st.success("✅ Your improved CV is ready!")
-                    st.balloons()
+                    #st.balloons()
 
                     # ====================== DOWNLOAD SECTION MODE 4 ======================
                     render_download_section("improve")
