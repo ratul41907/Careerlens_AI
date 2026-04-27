@@ -1204,7 +1204,9 @@ elif "Extract from Documents" in generation_mode:
                             Certifications: {'; '.join([str(c)[:80] for c in extracted.get('certifications', [])])}
                             Experience: {'; '.join([str(e)[:100] for e in extracted.get('experience', [])])}
                             """
-
+                        except:
+                            e = "CVOptimizer not available"
+                            st.warning(f"⚠️ LLM optimization unavailable: {str(e)}")
                         try:
                             optimization = optimizer.improve_existing_cv_with_jd(
                                 cv_text=cv_summary,
