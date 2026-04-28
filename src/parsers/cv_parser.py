@@ -237,9 +237,16 @@ Use bullet points with "-" for lists."""
         if projects:
             sections['projects'] = projects
 
-        if not sections or len(sections) < 3:
-            sections = self._fallback_parse(cv_text)
-
+        bad_values = ['your name', 'not specified', 'n/a', 'none', '[extract', 'candidate']
+        name_val = sections.get('name', '').lower().strip()
+        if not sections or len(sections) < 3 or name_val in bad_values:
+            fallback = self._fallback_parse(cv_text)
+            for key, val in fallback.items():
+                if key not in sections or (
+                    isinstance(sections.get(key), str) and
+                    sections[key].lower().strip() in bad_values
+                ):
+                    sections[key] = val
         return {
             'text': cv_text,
             'sections': sections,
@@ -342,31 +349,92 @@ If not found write "Not specified". Use "-" for list items."""
         return sections
 
     def _fallback_parse(self, cv_text: str) -> Dict:
-        """Fallback parsing if LLM fails"""
+        """Fallback parsing if LLM fails or returns placeholders"""
         sections = {}
 
+        # Email
         email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', cv_text)
         if email_match:
             sections['email'] = email_match.group(0)
 
-        phone_match = re.search(r'[\+\d][\d\-\(\)\s]{8,}', cv_text)
+        # Phone
+        phone_match = re.search(r'[\+\(]?[0-9][0-9\s\-\(\)]{7,}[0-9]', cv_text)
         if phone_match:
             sections['phone'] = phone_match.group(0).strip()
 
+        # Name
+        for line in cv_text.split('\n'):
+            line = line.strip()
+            if line and 2 < len(line) < 60 and not any(
+                x in line.lower() for x in ['email', 'phone', '@', 'http', 'location', 'address', 'linkedin', 'github']
+            ):
+                sections['name'] = line
+                break
+
+        # Skills
         common_skills = [
             'Python', 'JavaScript', 'Java', 'C++', 'React', 'Node', 'Django',
-            'FastAPI', 'SQL', 'MongoDB', 'Docker', 'Kubernetes', 'AWS', 'Git'
+            'FastAPI', 'SQL', 'MongoDB', 'Docker', 'Kubernetes', 'AWS', 'Git',
+            'TypeScript', 'Flask', 'PostgreSQL', 'MySQL', 'Redis', 'HTML', 'CSS',
+            'Machine Learning', 'Deep Learning', 'TensorFlow', 'PyTorch', 'Pandas',
+            'NumPy', 'Scikit-learn', 'REST', 'GraphQL', 'Linux', 'Azure', 'GCP',
+            'Streamlit', 'WebSocket', 'Stripe', 'Jenkins', 'FastAPI', 'Redis'
         ]
-        found_skills = [skill for skill in common_skills if skill.lower() in cv_text.lower()]
+        found_skills = [s for s in common_skills if s.lower() in cv_text.lower()]
         if found_skills:
             sections['skills'] = found_skills
 
+        # Experience years
         exp_match = re.search(r'(\d+)\+?\s*(?:years?|yrs?)', cv_text, re.IGNORECASE)
         if exp_match:
             sections['experience'] = f"{exp_match.group(1)} years"
 
-        return sections
+        # Work history
+        work_history = []
+        patterns = [
+            r'([A-Z][a-zA-Z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Architect|Lead|Director|Intern))\s*[|\-]\s*([A-Za-z\s]+)\s*[|\-]\s*([\d]{4}[-–\s]+(?:Present|[\d]{4}))',
+            r'([A-Z][a-zA-Z\s]+(?:Engineer|Developer|Manager|Analyst|Designer|Architect|Lead|Director|Intern))\s*\|\s*([A-Za-z\s]+)\s*\|\s*([\d]{4})',
+        ]
+        for pattern in patterns:
+            matches = re.findall(pattern, cv_text)
+            for match in matches[:4]:
+                entry = f"{match[0].strip()}: {match[1].strip()} ({match[2].strip()})"
+                if entry not in work_history:
+                    work_history.append(entry)
+        if work_history:
+            sections['work_history'] = work_history
 
+        # Education
+        edu_list = []
+        edu_pattern = re.findall(
+            r'(Bachelor|Master|PhD|BSc|MSc|B\.S\.|M\.S\.|B\.Tech|MBA|B\.Sc)[^\n]*\n?([^\n]*(?:University|College|Institute|School)[^\n]*)',
+            cv_text, re.IGNORECASE
+        )
+        for match in edu_pattern[:2]:
+            degree_line = match[0].strip()
+            institution_line = match[1].strip()
+            year_match = re.search(
+                r'(\d{4})\s*[-–]\s*(\d{4}|Present)',
+                cv_text[cv_text.find(degree_line):cv_text.find(degree_line)+200]
+            )
+            edu_list.append(f"{degree_line}: {institution_line} ({year_match.group(0) if year_match else ''})")
+        if edu_list:
+            sections['education'] = edu_list
+
+        # GPA
+        gpa_match = re.search(r'(?:GPA|CGPA)[:\s]+(\d+\.\d+)', cv_text, re.IGNORECASE)
+        if gpa_match:
+            sections['gpa'] = gpa_match.group(1)
+
+        # Certifications
+        cert_matches = re.findall(
+            r'([A-Z][A-Za-z\s]+(?:Certified|Certificate|Certification|Associate|Professional)[^\n]*)',
+            cv_text
+        )
+        if cert_matches:
+            sections['certifications'] = [c.strip() for c in cert_matches[:5]]
+
+        return sections
 
 # Test
 if __name__ == "__main__":

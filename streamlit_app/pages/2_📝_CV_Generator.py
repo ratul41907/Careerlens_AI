@@ -896,12 +896,26 @@ We'll match YOUR skills automatically!""",
                     company_parts = rest.split('(')
                     company = company_parts[0].strip() if company_parts else 'Company'
                     duration = company_parts[1].rstrip(')').strip() if len(company_parts) > 1 else 'Present'
+# Try to extract real bullets from CV text for this position
+                    real_bullets = []
+                    if full_text:
+                        title_pos = full_text.find(title)
+                        if title_pos != -1:
+                            snippet = full_text[title_pos:title_pos+800]
+                            for line in snippet.split('\n'):
+                                line = line.strip().lstrip('•-*').strip()
+                                if line and len(line) > 15 and len(line) < 200:
+                                    if any(verb in line.lower() for verb in ['developed', 'built', 'led', 'implemented', 'designed', 'managed', 'created', 'improved', 'reduced', 'increased', 'deployed', 'architected', 'collaborated', 'integrated']):
+                                        real_bullets.append(line)
+                                        if len(real_bullets) >= 4:
+                                            break
+
                     experience_list.append({
-                    'title': title,
-                    'company': company,
-                    'duration': duration,
-                    'bullets': ['Developed and maintained software systems', 'Collaborated with cross-functional teams']
-                })
+                        'title': title,
+                        'company': company,
+                        'duration': duration,
+                        'bullets': real_bullets if real_bullets else ['Contributed to software development and team objectives']
+                    })            
             elif cv_sections.get('experience', ''):
                 experience_list.append({
                     'title': 'Software Engineer',
@@ -917,14 +931,14 @@ We'll match YOUR skills automatically!""",
                 lines = [l.strip() for l in education_text.split('\n') if l.strip()]
                 if lines:
                     raw_edu_text = education_text
-                    gpa_match = re.search(r'(?:GPA|CGPA)[:\s]+(\d+\.\d+)', raw_edu_text, re.IGNORECASE)
+                    
+                    gpa_match = re.search(r'(?:GPA|CGPA)[:\s]+(\d+\.\d+)', education_text, re.IGNORECASE)
                     education_list.append({
                         'degree': lines[0],
                         'institution': lines[1] if len(lines) > 1 else 'University',
                         'year': lines[2] if len(lines) > 2 else 'Recent',
                         'gpa': gpa_match.group(1) if gpa_match else None
-                    })            
-            # Smart skill ordering (matched first)
+                    })            # Smart skill ordering (matched first)
             all_jd_skills = jd_data.get('required_skills', []) + jd_data.get('preferred_skills', [])
             ordered_skills = matched_skills + [s for s in all_jd_skills if s not in matched_skills]
             
@@ -935,13 +949,21 @@ We'll match YOUR skills automatically!""",
             status_text.info("✨ **Step 5/5:** Generating your optimized CV...")
             progress_bar.progress(95)
             
+# Try to get original summary from CV text
+            original_summary = ''
+            summary_match = re.search(
+                r'(?:SUMMARY|PROFILE|OBJECTIVE)[:\s]*\n(.+?)(?:\n[A-Z]{2,}|\Z)',
+                full_text, re.IGNORECASE | re.DOTALL
+            )
+            if summary_match:
+                original_summary = summary_match.group(1).strip()[:300]
+
             personal_info = {
                 'name': extracted_name,
                 'email': extracted_email,
                 'phone': extracted_phone,
-                'summary': f"Professional with {len(matched_skills)}/{len(all_jd_skills)} required skills. Expertise in {', '.join(matched_skills[:5])}."
-            }
-            
+                'summary': original_summary if original_summary else f"Experienced professional with expertise in {', '.join(matched_skills[:5])}. {len(matched_skills)}/{len(all_jd_skills)} required skills matched."
+            }            
             generator = CVGenerator()
             doc = generator.generate_cv(
                 personal_info=personal_info,
@@ -1085,11 +1107,15 @@ elif "Extract from Documents" in generation_mode:
             # Parse based on type
                     if doc.name.lower().endswith(('.pdf', '.docx', '.txt')):
                         doc_data = cv_parser.parse(tmp_path)
-    
+
+                        # Store for later use in generation
+                        if 'parsed_docs' not in st.session_state:
+                            st.session_state.parsed_docs = []
+                        st.session_state.parsed_docs.append(doc_data)    
     # Store parsed sections for later use in generation
                         if 'parsed_docs' not in st.session_state:
                             st.session_state.parsed_docs = []
-                        st.session_state.parsed_docs.append(doc_data)
+                        
                 # Extract education safely
                         if 'education' in doc_data.get('sections', {}):
                             edu_data = doc_data['sections']['education']
@@ -1261,81 +1287,121 @@ Experience: {'; '.join([str(e)[:100] for e in extracted.get('experience', [])])}
                     
                     # Use manually entered info first, fall back to extracted
                     # Collect extracted info from all parsed documents
-                    extracted_name = doc_name or ''
-                    extracted_email = doc_email or ''
-                    extracted_phone = doc_phone or ''
+                    
+                    
+                    
 
                     # Try to get from parsed document sections if not manually entered
-                    for doc_item in st.session_state.get('parsed_docs', []):
-                        sections = doc_item.get('sections', {})
-                        if not extracted_name:
-                            extracted_name = sections.get('name', '')
-                        if not extracted_email:
-                            extracted_email = sections.get('email', '')
-                        if not extracted_phone:
-                            extracted_phone = sections.get('phone', '')
+  
+# Use manual input first, fall back to parsed document data
+                    final_name = doc_name or ''
+                    final_email = doc_email or ''
+                    final_phone = doc_phone or ''
 
-                    # Final fallbacks
-                    extracted_name = extracted_name or 'Your Name'
-                    extracted_email = extracted_email or 'email@example.com'
-                    extracted_phone = extracted_phone or '+1-234-567-8900'
+                    for parsed_doc in st.session_state.get('parsed_docs', []):
+                        sections = parsed_doc.get('sections', {})
+                        full_text_doc = parsed_doc.get('text', '')
+
+                        # Get name - reject placeholders
+                        if not final_name:
+                            candidate = sections.get('name', '')
+                            bad_names = ['your name', 'name', 'candidate', 'not specified', '']
+                            if candidate.lower().strip() not in bad_names:
+                                final_name = candidate
+                            else:
+                                # Regex fallback on raw text
+                                for line in full_text_doc.split('\n'):
+                                    line = line.strip()
+                                    if line and 2 < len(line) < 60 and not any(
+                                        x in line.lower() for x in ['email', 'phone', '@', 'http', 'location', 'software', 'engineer', 'developer']
+                                    ):
+                                        final_name = line
+                                        break
+
+                        if not final_email:
+                            candidate = sections.get('email', '')
+                            if candidate and '@' in candidate and 'example' not in candidate:
+                                final_email = candidate
+                            else:
+                                email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', full_text_doc)
+                                if email_match:
+                                    final_email = email_match.group(0)
+
+                        if not final_phone:
+                            candidate = sections.get('phone', '')
+                            if candidate and len(candidate) > 7:
+                                final_phone = candidate
+                            else:
+                                phone_match = re.search(r'[\+\(]?[0-9][0-9\s\-\(\)]{7,}[0-9]', full_text_doc)
+                                if phone_match:
+                                    final_phone = phone_match.group(0).strip()
+# Try to extract real summary from parsed document
+                    real_summary = ''
+                    for parsed_doc in st.session_state.get('parsed_docs', []):
+                        full_text_doc = parsed_doc.get('text', '')
+                        summary_match = re.search(
+                            r'(?:SUMMARY|PROFILE|OBJECTIVE)[:\s]*\n(.+?)(?:\n[A-Z]{2,}|\Z)',
+                            full_text_doc, re.IGNORECASE | re.DOTALL
+                        )
+                        if summary_match:
+                            real_summary = summary_match.group(1).strip()[:300]
+                            break
 
                     personal_info = {
-                        'name': extracted_name,
-                        'email': extracted_email,
-                        'phone': extracted_phone,
-                        'summary': summary_text
-                    }
-                    
-                    
+                        'name': final_name or 'Your Name',
+                        'email': final_email or 'email@example.com',
+                        'phone': final_phone or '+1-234-567-8900',
+                        'summary': real_summary if real_summary else summary_text
+                    }                    
                     
                     
                     
                     
   # Extract structured experience from raw strings
                     mode3_experience = []
-                    # First try structured work_history from parsed docs
-                    for doc_item in st.session_state.get('parsed_docs', []):
-                        sections = doc_item.get('sections', {})
+                    for parsed_doc in st.session_state.get('parsed_docs', []):
+                        sections = parsed_doc.get('sections', {})
                         work_history = sections.get('work_history', [])
+                        full_text_doc = parsed_doc.get('text', '')
                         if work_history and isinstance(work_history, list):
-                            for item in work_history[:3]:
+                            for item in work_history[:4]:
                                 parts = str(item).split(':')
                                 title = parts[0].strip() if parts else 'Developer'
                                 rest = parts[1].strip() if len(parts) > 1 else ''
                                 co_parts = rest.split('(')
                                 company = co_parts[0].strip() if co_parts else 'Company'
                                 duration = co_parts[1].rstrip(')').strip() if len(co_parts) > 1 else 'Present'
+                                # Try to extract real bullets
+                                real_bullets = []
+                                if full_text_doc:
+                                    title_pos = full_text_doc.find(title)
+                                    if title_pos != -1:
+                                        snippet = full_text_doc[title_pos:title_pos+600]
+                                        for line in snippet.split('\n'):
+                                            line = line.strip().lstrip('•-*').strip()
+                                            if line and len(line) > 15 and len(line) < 200:
+                                                if any(v in line.lower() for v in ['developed','built','led','implemented','designed','managed','created','improved','reduced','deployed']):
+                                                    real_bullets.append(line)
+                                                    if len(real_bullets) >= 4:
+                                                        break
                                 mode3_experience.append({
                                     'title': title,
                                     'company': company,
                                     'duration': duration,
-                                    'bullets': ['Contributed to software development']
+                                    'bullets': real_bullets if real_bullets else ['Contributed to project development']
                                 })
-                            break  # Use first doc that has work history
-
-                    # Fallback to raw experience strings
-                    if not mode3_experience:
-                        for item in extracted.get('experience', [])[:3]:
-                            parts = str(item).split(':')
-                            title = parts[0].strip() if parts else 'Developer'
-                            rest = parts[1].strip() if len(parts) > 1 else ''
-                            co_parts = rest.split('(')
-                            company = co_parts[0].strip() if co_parts else 'Company'
-                            duration = co_parts[1].rstrip(')').strip() if len(co_parts) > 1 else 'Present'
-                            mode3_experience.append({
-                                'title': title,
-                                'company': company,
-                                'duration': duration,
-                                'bullets': ['Contributed to software development']
-                            })
-                    # Extract structured education from raw strings
+                            break                    # Extract structured education from raw strings
                     mode3_education = []
-                    # First try structured education from parsed docs
-                    for doc_item in st.session_state.get('parsed_docs', []):
-                        sections = doc_item.get('sections', {})
-                        edu_list = sections.get('education', [])
-                        if edu_list and isinstance(edu_list, list):
+                    for parsed_doc in st.session_state.get('parsed_docs', []):
+                        sections = parsed_doc.get('sections', {})
+                        full_text_doc = parsed_doc.get('text', '')
+                        edu_raw = sections.get('education', [])
+                        # Normalize to list regardless of string or list
+                        if isinstance(edu_raw, str):
+                            edu_list = [edu_raw] if edu_raw.strip() else []
+                        else:
+                            edu_list = edu_raw
+                        if edu_list:                          
                             for item in edu_list[:2]:
                                 parts = str(item).split(':')
                                 degree = parts[0].strip() if parts else 'Degree'
@@ -1343,7 +1409,7 @@ Experience: {'; '.join([str(e)[:100] for e in extracted.get('experience', [])])}
                                 inst_parts = rest.split('(')
                                 institution = inst_parts[0].strip() if inst_parts else 'University'
                                 year = inst_parts[1].rstrip(')').strip() if len(inst_parts) > 1 else ''
-                                gpa_match = re.search(r'(?:GPA|CGPA)[:\s]+(\d+\.\d+)', str(item), re.IGNORECASE)
+                                gpa_match = re.search(r'(?:GPA|CGPA)[:\s]+(\d+\.\d+)', full_text_doc, re.IGNORECASE)
                                 mode3_education.append({
                                     'degree': degree,
                                     'institution': institution,
@@ -1351,6 +1417,7 @@ Experience: {'; '.join([str(e)[:100] for e in extracted.get('experience', [])])}
                                     'gpa': gpa_match.group(1) if gpa_match else None
                                 })
                             break
+                    
                     generator = CVGenerator()
                     doc = generator.generate_cv(
                         personal_info=personal_info,
@@ -1575,17 +1642,16 @@ elif "Improve Existing CV" in generation_mode:
                     extracted_phone = phone_match.group(0) if phone_match else '+1-234-567-8900'
                     
                     extracted_name = cv_sections.get('name', '')
-                    if not extracted_name and cv_text:
-                        # Take first non-empty line but skip lines that look like headers
+                    bad_names = ['your name', 'name', 'candidate', 'not specified']
+                    if not extracted_name or extracted_name.lower().strip() in bad_names:
                         for line in cv_text.split('\n'):
                             line = line.strip()
                             if line and len(line) > 2 and len(line) < 60 and not any(
-                                x in line.lower() for x in ['email', 'phone', 'address', 'http', '@']
+                                x in line.lower() for x in ['email', 'phone', 'address', 'http', '@', 'software', 'engineer', 'developer', 'location']
                             ):
                                 extracted_name = line
                                 break
-                    extracted_name = extracted_name or 'Your Name'
-                    
+                    extracted_name = extracted_name or 'Your Name'                    
                     # Step 4: Generate improved CV
                     status_text.info("✨ **Step 4/5:** Generating improved CV...")
                     progress_bar.progress(80)
@@ -1606,13 +1672,24 @@ elif "Improve Existing CV" in generation_mode:
                         co_parts = rest.split('(')
                         company = co_parts[0].strip() if co_parts else 'Company'
                         duration = co_parts[1].rstrip(')').strip() if len(co_parts) > 1 else 'Present'
+                        real_bullets_m4 = []
+                        if cv_text:
+                            title_pos = cv_text.find(title)
+                            if title_pos != -1:
+                                snippet = cv_text[title_pos:title_pos+600]
+                                for line in snippet.split('\n'):
+                                    line = line.strip().lstrip('•-*').strip()
+                                    if line and len(line) > 15 and len(line) < 200:
+                                        if any(v in line.lower() for v in ['developed','built','led','implemented','designed','managed','created','improved','reduced','deployed','architected']):
+                                            real_bullets_m4.append(line)
+                                            if len(real_bullets_m4) >= 4:
+                                                break
                         mode4_experience.append({
                             'title': title,
                             'company': company,
                             'duration': duration,
-                            'bullets': ['Contributed to software development']
+                            'bullets': real_bullets_m4 if real_bullets_m4 else ['Contributed to software development and team objectives']
                         })
-
                     # Extract education
                     mode4_education = []
                     for item in cv_sections.get('education', [])[:2]:
@@ -1622,13 +1699,13 @@ elif "Improve Existing CV" in generation_mode:
                         inst_parts = rest.split('(')
                         institution = inst_parts[0].strip() if inst_parts else 'University'
                         year = inst_parts[1].rstrip(')').strip() if len(inst_parts) > 1 else ''
+                        gpa_match_m4 = re.search(r'(?:GPA|CGPA)[:\s]+(\d+\.\d+)', cv_text, re.IGNORECASE)
                         mode4_education.append({
                             'degree': degree,
                             'institution': institution,
                             'year': year,
-                            'gpa': None
+                            'gpa': gpa_match_m4.group(1) if gpa_match_m4 else None
                         })
-
                     generator = CVGenerator()
                     doc = generator.generate_cv(
                         personal_info=personal_info,
