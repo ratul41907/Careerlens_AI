@@ -1,0 +1,10 @@
+
+Step 1: Go to the correct folder
+cd C:\cloudflared
+
+Step 2: Start the Cloudflare Tunnel
+Copy and paste this command:
+.\cloudflared.exe tunnel --url http://localhost:8501
+
+Wait 10–15 seconds. You should see a line that looks like:
+texthttps://something-random.trycloudflare.com
